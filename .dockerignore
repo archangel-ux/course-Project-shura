@@ -1,0 +1,21 @@
+# Secrets and local state stay out of the image; pass settings with --env-file instead.
+.env
+.venv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+*.log
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# not needed at runtime
+README.md
+render.yaml
+Procfile
+supabase/
+docker-compose.yml
+Dockerfile
+.dockerignore

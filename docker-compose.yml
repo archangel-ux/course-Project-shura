@@ -1,0 +1,10 @@
+# Local run in Docker: docker compose up --build  →  http://localhost:8000
+# Settings come from .env (copy .env.example). For localhost, set SITE_URL=http://localhost:8000.
+services:
+  web:
+    build: .
+    image: qoima
+    env_file: .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

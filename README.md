@@ -89,7 +89,16 @@ copy .env.example .env          # SECRET_KEY мәнін өзгертіңіз
 
 **Render (тегін):** кодты GitHub-қа жүктеңіз → Render → **New → Blueprint** → репозиторийді таңдаңыз. `render.yaml` бәрін өзі баптайды; тек `SITE_URL` мәнін енгізіңіз (Render берген мекенжай). Содан кейін сол мекенжайды Supabase-тегі Site URL / Redirect URLs-қа қосыңыз.
 
-**Railway / Heroku тәрізді:** `Procfile` дайын. **Docker:** `Dockerfile` дайын (`docker build -t qoima . && docker run -p 8000:8000 --env-file .env qoima`).
+**Railway / Heroku тәрізді:** `Procfile` дайын. **Docker:** `Dockerfile` және `docker-compose.yml` дайын.
+
+```powershell
+docker compose up --build        # → http://localhost:8000
+# немесе
+docker build -t qoima .
+docker run -p 8000:8000 --env-file .env qoima
+```
+
+`.env` образға кірмейді (`.dockerignore`), баптаулар іске қосқанда беріледі. Жергілікті жұмыс үшін `.env` ішінде `SITE_URL=http://localhost:8000` қойыңыз.
 
 ## Деректер және қауіпсіздік
 
@@ -106,7 +115,7 @@ copy .env.example .env          # SECRET_KEY мәнін өзгертіңіз
 ├── main.py                 # жергілікті сервер
 ├── wsgi.py                 # production кіру нүктесі (gunicorn)
 ├── requirements.txt
-├── render.yaml · Procfile · Dockerfile
+├── render.yaml · Procfile · Dockerfile · docker-compose.yml
 ├── .env.example · .gitignore
 ├── supabase/schema.sql     # кестелер, RLS, функциялар
 └── app/
