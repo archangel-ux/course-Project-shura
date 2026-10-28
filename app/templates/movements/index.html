@@ -5,57 +5,86 @@
 
 {{ ui.head('03 — ' ~ t('nav.movements'), t('movements.title'), t('movements.lede')) }}
 
-<div class="layout-1-2">
+{% set multi = warehouses | length > 1 %}
+<div class="{{ 'layout-doc' if can('operate') else '' }}">
+  {% if can('operate') %}
   <section class="panel panel--sticky">
-    <header class="panel__head"><h2 class="panel__title">{{ t('movements.form_title') }}</h2></header>
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('movements.form_title') }}</h2>
+        <p class="panel__sub">{{ t('movements.form_sub') }}</p>
+      </div>
+    </header>
     {{ ui.alert(error) }}
     {% if products %}
       <form class="stack" method="post" action="{{ url_for('movements.create') }}" data-movement-form>
         {{ ui.csrf() }}
-        <div class="segmented">
-          <label><input type="radio" name="movement_type" value="IN" {% if form.movement_type != 'OUT' %}checked{% endif %}><span>{{ t('movement.IN') }}</span></label>
-          <label><input type="radio" name="movement_type" value="OUT" {% if form.movement_type == 'OUT' %}checked{% endif %}><span>{{ t('movement.OUT') }}</span></label>
+        <div class="segmented segmented--{{ 3 if multi else 2 }}">
+          <label><input type="radio" name="movement_type" value="IN" {% if form.movement_type not in ('OUT', 'TRANSFER') %}checked{% endif %}><span>{{ ui.icon('download', 15) }}{{ t('movement.IN') }}</span></label>
+          <label><input type="radio" name="movement_type" value="OUT" {% if form.movement_type == 'OUT' %}checked{% endif %}><span>{{ ui.icon('upload', 15) }}{{ t('movement.OUT') }}</span></label>
+          {% if multi %}<label><input type="radio" name="movement_type" value="TRANSFER" {% if form.movement_type == 'TRANSFER' %}checked{% endif %}><span>{{ ui.icon('transfer', 15) }}{{ t('movement.TRANSFER') }}</span></label>{% endif %}
         </div>
 
-        <label class="field">
-          <span class="field__label">{{ t('field.product') }}<i class="field__req">*</i></span>
-          <span class="select select--block">
-            <select name="product_id" required data-product-select>
-              <option value="">{{ t('movements.choose_product') }}</option>
-              {% for p in products %}
-                <option value="{{ p.id }}" data-qty="{{ p.quantity }}" data-min="{{ p.min_quantity }}" data-unit="{{ p.unit }}"
-                        {% if form.product_id | string == p.id | string %}selected{% endif %}>{{ p.name }} · {{ p.sku }}</option>
-              {% endfor %}
-            </select>{{ ui.icon('chevron', 14) }}
-          </span>
-          <span class="stockline" data-stockline data-template="{{ t('movements.stockline') }}"></span>
-        </label>
+        <div class="{{ 'grid-2' if multi else '' }}">
+          <label class="field" {% if not multi %}hidden{% endif %}>
+            <span class="field__label" data-from-label data-text-in="{{ t('field.warehouse') }}" data-text-transfer="{{ t('field.from_warehouse') }}">{{ t('field.warehouse') }}</span>
+            {{ ui.select('warehouse_id', warehouses | options, form.warehouse_id or (warehouses[0].id if warehouses else ''), attrs='data-warehouse-select') }}
+          </label>
+          {% if multi %}
+            <label class="field" data-only-transfer>
+              <span class="field__label">{{ t('field.to_warehouse') }}</span>
+              {{ ui.select('to_warehouse_id', warehouses | options, form.to_warehouse_id or warehouses[1].id) }}
+            </label>
+          {% endif %}
+        </div>
 
-        {{ ui.field('quantity', t('field.quantity'), form.quantity, type='number', required=True, attrs='min="1" step="1" inputmode="numeric"') }}
+        <div class="lines" data-lines>
+          <div class="lines__head"><span>{{ t('field.product') }}</span><span>{{ t('field.quantity') }}</span><span></span></div>
+          {% for line in lines %}
+            <div class="line" data-line>
+              <div class="line__product">
+                <span class="select select--block">
+                  <select name="product_id" data-product-select aria-label="{{ t('field.product') }}" data-searchable>
+                    <option value="">{{ t('movements.choose_product') }}</option>
+                    {% for p in products %}
+                      <option value="{{ p.id }}" data-stock="{{ stock_json[p.id] }}" data-min="{{ p.min_quantity }}" data-unit="{{ p.unit }}"
+                              data-sku="{{ p.sku }}" {% if line.product_id == p.id | string %}selected{% endif %}>{{ p.name }} · {{ p.sku }}</option>
+                    {% endfor %}
+                  </select>{{ ui.icon('chevron', 14) }}
+                </span>
+                <span class="stockline" data-stockline data-template="{{ t('movements.stockline') }}"></span>
+              </div>
+              <input class="input line__qty" type="number" name="quantity" min="1" step="1" inputmode="numeric" value="{{ line.quantity }}"
+                     placeholder="0" aria-label="{{ t('field.quantity') }}">
+              <button class="line__remove" type="button" data-remove-line aria-label="{{ t('action.delete') }}">{{ ui.icon('close', 14) }}</button>
+            </div>
+          {% endfor %}
+          <button class="btn btn--text btn--sm lines__add" type="button" data-add-line>{{ ui.icon('plus', 14) }}{{ t('movements.add_line') }}</button>
+        </div>
 
         <label class="field" data-only-in>
           <span class="field__label">{{ t('field.supplier') }}</span>
-          <span class="select select--block">
-            <select name="supplier_id">
-              <option value="">{{ t('movements.no_supplier') }}</option>
-              {% for s in suppliers %}<option value="{{ s.id }}" {% if form.supplier_id | string == s.id | string %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
-            </select>{{ ui.icon('chevron', 14) }}
-          </span>
-          {% if not suppliers %}<span class="field__hint"><a class="link" href="{{ url_for('suppliers.create') }}">{{ t('action.new_supplier') }} →</a></span>{% endif %}
+          {{ ui.select('supplier_id', suppliers | options, form.supplier_id or '', t('movements.no_supplier')) }}
+          {% if not suppliers and can('manage') %}<span class="field__hint"><a class="link" href="{{ url_for('suppliers.create') }}">{{ t('action.new_supplier') }} →</a></span>{% endif %}
+        </label>
+        <label class="field" data-only-out>
+          <span class="field__label">{{ t('field.counterparty') }}</span>
+          <input class="input" name="counterparty" maxlength="150" value="{{ form.counterparty or '' }}" placeholder="{{ t('movements.counterparty_placeholder') }}">
         </label>
 
         {{ ui.field('note', t('field.note'), form.note, placeholder=t('movements.note_placeholder'), attrs='maxlength="200"') }}
-        <button class="btn btn--primary btn--block">{{ t('action.record') }}</button>
+        <button class="btn btn--primary btn--block">{{ ui.icon('check', 16) }}{{ t('action.record') }}</button>
       </form>
     {% else %}
-      {{ ui.empty(t('movements.no_products'), t('movements.no_products_text'), url_for('products.create'), t('action.new_product')) }}
+      {{ ui.empty(t('movements.no_products'), t('movements.no_products_text'), url_for('products.create') if can('manage') else None, t('action.new_product')) }}
     {% endif %}
   </section>
+  {% endif %}
 
-  <section>
+  <section class="minw0">
     <form class="toolbar" method="get" data-autosubmit>
       <div class="tabs" role="radiogroup" aria-label="{{ t('field.type') }}">
-        {% for value, label in [('', 'filter.all'), ('IN', 'movement.IN'), ('OUT', 'movement.OUT'), ('ADJUST', 'movement.ADJUST')] %}
+        {% for value, label in [('', 'filter.all'), ('IN', 'movement.IN'), ('OUT', 'movement.OUT'), ('TRANSFER', 'movement.TRANSFER'), ('ADJUST', 'movement.ADJUST')] %}
           <label class="tabs__item"><input type="radio" name="type" value="{{ value }}" {% if movement_type == value %}checked{% endif %}><span>{{ t(label) }}</span></label>
         {% endfor %}
       </div>
@@ -72,7 +101,8 @@
             <thead>
               <tr>
                 <th>{{ t('field.date') }}</th><th>{{ t('field.product') }}</th><th>{{ t('field.type') }}</th>
-                <th class="num">{{ t('field.quantity') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th>
+                {% if multi %}<th>{{ t('field.warehouse') }}</th>{% endif %}
+                <th class="num">{{ t('field.quantity') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th><th class="num">{{ t('pdf.document') }}</th>
               </tr>
             </thead>
             <tbody data-filterable>
@@ -84,9 +114,11 @@
                     <span class="sku sku--block">{{ m.product.sku }}</span>
                   </td>
                   <td>{{ ui.movement_tag(m.movement_type) }}</td>
+                  {% if multi %}<td class="muted nowrap">{{ ui.place(m) }}</td>{% endif %}
                   <td class="num nowrap">{{ ui.movement_qty(m) }}</td>
                   <td class="num">{{ m.balance_after | number }}</td>
                   <td class="muted">{% if m.supplier %}<span class="strong-soft">{{ m.supplier.name }}</span>{% if m.note %} · {% endif %}{% endif %}{{ m.note }}</td>
+                  <td class="num">{{ ui.doc_link(m) }}</td>
                 </tr>
               {% endfor %}
             </tbody>

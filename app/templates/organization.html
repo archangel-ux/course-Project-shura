@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('nav.organization') }}{% endblock %}
+{% block content %}
+
+{{ ui.head(t('org.eyebrow'), details.name or org.name, t('org.lede')) }}
+{% set owner = org.role == 'owner' %}
+{% set values = form or details %}
+
+<div class="settings">
+  <section class="form-section" id="requisites">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('org.requisites') }}</h2>
+      <p>{{ t('org.requisites_text') }}</p>
+    </div>
+    <form class="form-section__fields" method="post" action="{{ url_for('organization.requisites') }}">
+      {{ ui.csrf() }}
+      {{ ui.alert(errors.requisites) }}
+      <fieldset class="plain" {% if not owner %}disabled{% endif %}>
+        {{ ui.field('name', t('field.org_name'), values.name, required=True, attrs='maxlength="150"') }}
+        <div class="grid-2">
+          {{ ui.field('bin', t('field.bin'), values.bin, placeholder='123456789012', cls='input--mono', attrs='maxlength="20" inputmode="numeric"') }}
+          {{ ui.field('phone', t('field.phone'), values.phone, type='tel', attrs='maxlength="40"') }}
+        </div>
+        {{ ui.field('address', t('field.address'), values.address, attrs='maxlength="250"') }}
+        {{ ui.field('director', t('field.director'), values.director, attrs='maxlength="120"') }}
+        {{ ui.field('bank', t('field.bank'), values.bank, attrs='maxlength="150"') }}
+        <div class="grid-2">
+          {{ ui.field('iban', 'IBAN (ИИК)', values.iban, placeholder='KZ00 0000 0000 0000 0000', cls='input--mono', attrs='maxlength="40"') }}
+          {{ ui.field('bik', t('field.bik'), values.bik, cls='input--mono', attrs='maxlength="20"') }}
+        </div>
+      </fieldset>
+      {% if owner %}<div class="form-section__save"><button class="btn btn--primary">{{ t('action.save') }}</button></div>
+      {% else %}<p class="field__hint">{{ t('roles.owner_only') }}</p>{% endif %}
+    </form>
+  </section>
+
+  <section class="form-section" id="team">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('org.team') }}</h2>
+      <p>{{ t('org.team_text') }}</p>
+      <ul class="roles-ref">
+        {% for r in roles %}<li>{{ ui.role_badge(r) }}<span>{{ t('role.' ~ r ~ '_text') }}</span></li>{% endfor %}
+      </ul>
+    </div>
+    <div class="form-section__fields">
+      <ul class="members">
+        {% for m in team %}
+          <li class="member">
+            <span class="avatar">{{ ((m.full_name or m.email)[:1]) | upper }}</span>
+            <div class="member__who">
+              <span class="member__name">{{ m.full_name or m.email }}{% if m.user_id == me %} <span class="muted">· {{ t('org.you') }}</span>{% endif %}</span>
+              <span class="member__mail">{{ m.email }}</span>
+            </div>
+            {% if owner %}
+              <form method="post" action="{{ url_for('organization.member_role', user_id=m.user_id) }}" data-autosubmit-select>
+                {{ ui.csrf() }}
+                {% set role_options = [] %}{% for r in roles %}{% set _ = role_options.append((r, t('role.' ~ r))) %}{% endfor %}
+                {{ ui.select('role', role_options, m.role, block=False, label=t('org.role')) }}
+              </form>
+              {% if m.user_id != me %}
+                <form method="post" action="{{ url_for('organization.remove_member', user_id=m.user_id) }}" data-confirm="{{ t('org.remove_confirm') }}">
+                  {{ ui.csrf() }}
+                  <button class="tool" aria-label="{{ t('org.remove') }}" data-tip="{{ t('org.remove') }}">{{ ui.icon('trash', 16) }}</button>
+                </form>
+              {% endif %}
+            {% else %}
+              {{ ui.role_badge(m.role) }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+
+      {% if owner %}
+        {% if new_invite %}
+          <div class="invitebox">
+            <p class="invitebox__title">{{ ui.icon('link', 16) }}{{ t('org.invite_link_for', email=new_invite.email) }}</p>
+            <div class="copyfield">
+              <input class="input input--mono" value="{{ new_invite.url }}" readonly data-copy-source>
+              <button class="btn btn--ghost btn--sm" type="button" data-copy>{{ ui.icon('copy', 14) }}{{ t('action.copy') }}</button>
+            </div>
+            <p class="field__hint">{{ t('org.invite_link_hint') }}</p>
+          </div>
+        {% endif %}
+
+        <form class="invite-form" method="post" action="{{ url_for('organization.create_invite') }}">
+          {{ ui.csrf() }}
+          <p class="field__label">{{ t('org.invite') }}</p>
+          {{ ui.alert(errors.invite) }}
+          <div class="invite-form__row">
+            <input class="input" type="email" name="email" required placeholder="email@company.kz" aria-label="{{ t('field.email') }}">
+            {% set invite_roles = [('storekeeper', t('role.storekeeper')), ('accountant', t('role.accountant')), ('owner', t('role.owner'))] %}
+            {{ ui.select('role', invite_roles, 'storekeeper', block=False, label=t('org.role')) }}
+            <button class="btn btn--primary">{{ ui.icon('send', 15) }}{{ t('org.invite_button') }}</button>
+          </div>
+        </form>
+
+        {% if invites %}
+          <p class="field__label">{{ t('org.pending') }}</p>
+          <ul class="members members--quiet">
+            {% for i in invites %}
+              <li class="member">
+                <span class="avatar avatar--ghost">{{ ui.icon('mail', 14) }}</span>
+                <div class="member__who">
+                  <span class="member__name">{{ i.email }}</span>
+                  <span class="member__mail">{{ t('role.' ~ i.role) }} · {{ i.created_at | date }}</span>
+                </div>
+                <button class="tool" type="button" data-copy-text="{{ invite_url(i.token) }}" data-tip="{{ t('action.copy') }}" aria-label="{{ t('action.copy') }}">{{ ui.icon('copy', 16) }}</button>
+                <form method="post" action="{{ url_for('organization.cancel_invite', invite_id=i.id) }}">
+                  {{ ui.csrf() }}
+                  <button class="tool" aria-label="{{ t('action.cancel') }}" data-tip="{{ t('action.cancel') }}">{{ ui.icon('close', 16) }}</button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="form-section" id="organizations">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('org.mine') }}</h2>
+      <p>{{ t('org.mine_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      <form method="post" action="{{ url_for('organization.switch') }}" class="orgs">
+        {{ ui.csrf() }}
+        {% for o in organizations %}
+          <button class="orgcard {% if o.is_current %}is-current{% endif %}" name="organization_id" value="{{ o.id }}" {% if o.is_current %}disabled{% endif %}>
+            {{ ui.icon('building', 18) }}<span class="orgcard__name">{{ o.name or '—' }}</span>{{ ui.role_badge(o.role) }}
+          </button>
+        {% endfor %}
+      </form>
+      {% if not owner %}
+        <form method="post" action="{{ url_for('organization.remove_member', user_id=me) }}" data-confirm="{{ t('org.leave_confirm') }}">
+          {{ ui.csrf() }}
+          <button class="btn btn--danger btn--sm">{{ ui.icon('logout', 14) }}{{ t('org.leave') }}</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

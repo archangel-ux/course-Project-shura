@@ -6,17 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ t('app.name') }}{% endblock %} · Qoima</title>
   <meta name="color-scheme" content="{{ theme }}">
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ static_url('favicon.svg') }}" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap&subset=cyrillic,cyrillic-ext" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
-  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  <link rel="stylesheet" href="{{ static_url('css/app.css') }}">
+  <script src="{{ static_url('js/app.js') }}" defer></script>
 </head>
 <body class="{% block body_class %}{% endblock %}" data-csrf="{{ csrf_token() }}"
       data-text-ok="{{ t('action.confirm') }}" data-text-cancel="{{ t('action.cancel') }}"
       data-text-show="{{ t('action.show_password') }}" data-text-hide="{{ t('action.hide_password') }}"
-      data-text-no-results="{{ t('products.not_found') }}">
+      data-text-no-results="{{ t('products.not_found') }}" data-text-search="{{ t('action.search') }}"
+      data-text-copied="{{ t('msg.copied') }}">
 {% block shell %}
 <header class="topbar">
   <div class="topbar__inner">
@@ -25,15 +26,16 @@
     </a>
 
     {% set nav = [
-      ('main.dashboard', 'nav.overview', 'main.'),
-      ('products.index', 'nav.products', 'products.'),
-      ('movements.index', 'nav.movements', 'movements.'),
-      ('stocktake.index', 'nav.stocktake', 'stocktake.'),
-      ('suppliers.index', 'nav.suppliers', 'suppliers.'),
-      ('reports.index', 'nav.reports', 'reports.'),
+      ('main.dashboard', 'nav.overview', 'main.', None),
+      ('products.index', 'nav.products', 'products.', None),
+      ('movements.index', 'nav.movements', 'movements.', None),
+      ('warehouses.index', 'nav.warehouses', 'warehouses.', None),
+      ('stocktake.index', 'nav.stocktake', 'stocktake.', 'operate'),
+      ('suppliers.index', 'nav.suppliers', 'suppliers.', None),
+      ('reports.index', 'nav.reports', 'reports.', 'reports'),
     ] %}
     <nav class="nav" aria-label="{{ t('nav.label') }}">
-      {% for endpoint, label, prefix in nav %}
+      {% for endpoint, label, prefix, permission in nav if not permission or can(permission) %}
         <a class="nav__link {% if request.endpoint and request.endpoint.startswith(prefix) and request.endpoint != 'main.preferences' %}is-active{% endif %}"
            href="{{ url_for(endpoint) }}">{{ t(label) }}</a>
       {% endfor %}
@@ -54,7 +56,7 @@
 
       <form method="post" action="{{ url_for('main.preferences') }}">
         {{ ui.csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
-        <button class="tool" name="theme" value="{{ 'light' if theme == 'dark' else 'dark' }}"
+        <button class="tool tool--theme" name="theme" value="{{ 'light' if theme == 'dark' else 'dark' }}"
                 aria-label="{{ t('pref.theme_toggle') }}" title="{{ t('pref.theme_toggle') }}">
           {{ ui.icon('sun' if theme == 'dark' else 'moon', 17) }}
         </button>
@@ -66,9 +68,23 @@
           <div class="menu__who">
             <span class="menu__name">{{ user.name }}</span>
             <span class="menu__mail">{{ user.email }}</span>
+            {% if org %}<span class="menu__org">{{ org.name }} · {{ ui.role_badge(org.role) }}</span>{% endif %}
           </div>
           <a class="menu__item" href="{{ url_for('account.index') }}">{{ ui.icon('user', 16) }}<span>{{ t('nav.account') }}</span></a>
-          <form method="post" action="{{ url_for('auth.logout') }}">
+          <a class="menu__item" href="{{ url_for('organization.index') }}">{{ ui.icon('users', 16) }}<span>{{ t('nav.organization') }}</span></a>
+          <a class="menu__item" href="{{ url_for('account.index') }}#notifications">{{ ui.icon('bell', 16) }}<span>{{ t('nav.notifications') }}</span></a>
+          {% if orgs | length > 1 %}
+            <div class="menu__group">{{ t('org.switch') }}</div>
+            <form method="post" action="{{ url_for('organization.switch') }}">
+              {{ ui.csrf() }}
+              {% for o in orgs %}
+                <button class="menu__item {% if org and o.id == org.id %}is-current{% endif %}" name="organization_id" value="{{ o.id }}">
+                  {{ ui.icon('building', 16) }}<span class="menu__ellipsis">{{ o.name or '—' }}</span>
+                </button>
+              {% endfor %}
+            </form>
+          {% endif %}
+          <form method="post" action="{{ url_for('auth.logout') }}" class="menu__sep">
             {{ ui.csrf() }}
             <button class="menu__item">{{ ui.icon('logout', 16) }}<span>{{ t('nav.logout') }}</span></button>
           </form>
@@ -79,19 +95,28 @@
 </header>
 
 <main class="page">
+  <div class="toasts">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for kind, message in messages %}
-      <div class="toast toast--{{ kind }}" role="status" data-toast>{{ message }}
-        <button class="toast__close" type="button" data-dismiss aria-label="{{ t('action.close') }}">{{ ui.icon('close', 14) }}</button>
-      </div>
+      {% if kind == 'document' %}
+        <div class="toast toast--doc" role="status" data-toast>
+          <span>{{ ui.icon('printer', 16) }}{{ t('msg.document_ready') }}</span>
+          <a class="btn btn--ghost btn--sm" href="{{ message[4:] }}" target="_blank" rel="noopener">{{ t('pdf.open') }}</a>
+        </div>
+      {% else %}
+        <div class="toast toast--{{ kind }}" role="status" data-toast>{{ message }}
+          <button class="toast__close" type="button" data-dismiss aria-label="{{ t('action.close') }}">{{ ui.icon('close', 14) }}</button>
+        </div>
+      {% endif %}
     {% endfor %}
   {% endwith %}
+  </div>
   {% block content %}{% endblock %}
 </main>
 
 <footer class="footer">
   <span>Qoima · {{ t('app.tagline') }}</span>
-  <span>{{ user.company or '' }}</span>
+  <span>{{ user.company or '' }}{% if org %} · {{ t('role.' ~ org.role) }}{% endif %}</span>
 </footer>
 {% endblock %}
 </body>

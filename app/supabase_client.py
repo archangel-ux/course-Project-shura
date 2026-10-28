@@ -94,3 +94,20 @@ class Supabase:
 
     def rpc(self, function, token, arguments):
         return self._request("POST", f"/rest/v1/rpc/{function}", token=token, json=arguments)
+
+    # ------------------------------------------------------------ storage
+
+    def upload(self, bucket, path, token, content, content_type):
+        response = self.http.post(
+            f"/storage/v1/object/{bucket}/{path}", content=content,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": content_type,
+                     "x-upsert": "true", "Cache-Control": "max-age=31536000"},
+        )
+        if response.status_code >= 400:
+            raise SupabaseError.from_response(response)
+
+    def remove(self, bucket, paths, token):
+        return self._request("DELETE", f"/storage/v1/object/{bucket}", token=token, json={"prefixes": list(paths)})
+
+    def public_url(self, bucket, path):
+        return f"{str(self.http.base_url).rstrip('/')}/storage/v1/object/public/{bucket}/{path}"

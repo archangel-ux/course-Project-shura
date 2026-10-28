@@ -2,19 +2,31 @@
 {% import "_ui.html" as ui %}
 {% block title %}{{ t('auth.register_title') }}{% endblock %}
 {% block card %}
-<h2 class="card-title">{{ t('auth.register_title') }}</h2>
+<h2 class="card-title">{{ t('auth.register_heading') }}</h2>
 <p class="card-sub">{{ t('auth.register_sub') }}</p>
 {{ ui.alert(error) }}
-<form class="stack" method="post">
+<form class="stack" method="post" action="{{ request.full_path }}" data-register>
   {{ ui.csrf() }}
-  {{ ui.field('full_name', t('field.full_name'), form.full_name, attrs='autocomplete="name" autofocus') }}
-  {{ ui.field('email', t('field.email'), form.email, type='email', required=True, attrs='autocomplete="email"') }}
   <div class="grid-2">
-    {{ ui.field('password', t('field.password'), type='password', required=True, attrs='autocomplete="new-password" minlength="8"') }}
-    {{ ui.field('password_confirm', t('field.password_confirm'), type='password', required=True, attrs='autocomplete="new-password" minlength="8"') }}
+    {{ ui.field('full_name', t('field.full_name'), form.full_name, placeholder=t('auth.name_placeholder'), attrs='autocomplete="name" autofocus maxlength="120"') }}
+    {{ ui.field('company', t('field.company'), form.company, placeholder=t('auth.company_placeholder'), attrs='autocomplete="organization" maxlength="120"') }}
   </div>
-  <p class="field__hint">{{ t('auth.password_rule') }}</p>
-  <button class="btn btn--primary btn--block">{{ t('auth.register_button') }}</button>
+  {{ ui.field('email', t('field.email'), form.email, type='email', required=True, placeholder='name@company.kz', attrs='autocomplete="email"') }}
+  <label class="field">
+    <span class="field__label">{{ t('field.password') }}<i class="field__req" aria-hidden="true">*</i></span>
+    <input class="input" type="password" name="password" required autocomplete="new-password" minlength="8" data-strength-input>
+    <span class="strength" data-strength aria-live="polite"
+          data-labels="{{ t('auth.strength_weak') }}|{{ t('auth.strength_fair') }}|{{ t('auth.strength_good') }}|{{ t('auth.strength_strong') }}">
+      <span class="strength__bars"><i></i><i></i><i></i><i></i></span><span class="strength__text">{{ t('auth.password_rule') }}</span>
+    </span>
+  </label>
+  {{ ui.field('password_confirm', t('field.password_confirm'), type='password', required=True, attrs='autocomplete="new-password" minlength="8" data-confirm-input') }}
+  <button class="btn btn--primary btn--block btn--lg">{{ t('auth.register_button') }}{{ ui.icon('arrow', 16) }}</button>
 </form>
-<p class="card-foot">{{ t('auth.have_account') }} <a class="link" href="{{ url_for('auth.login') }}">{{ t('auth.login_link') }}</a></p>
+<ul class="perks">
+  <li>{{ ui.icon('warehouse', 16) }}{{ t('auth.perk1') }}</li>
+  <li>{{ ui.icon('send', 16) }}{{ t('auth.perk2') }}</li>
+  <li>{{ ui.icon('printer', 16) }}{{ t('auth.perk3') }}</li>
+</ul>
+<p class="card-foot">{{ t('auth.have_account') }} <a class="link" href="{{ url_for('auth.login', next=request.args.get('next')) }}">{{ t('auth.login_link') }}</a></p>
 {% endblock %}

@@ -14,12 +14,12 @@
 <section class="metrics">
   <div class="metric">
     <span class="metric__label">{{ t('metric.value') }}</span>
-    <span class="metric__value">{{ summary.purchase_value | money_short }}</span>
+    <span class="metric__value" data-count="{{ summary.purchase_value // 100 }}" data-suffix=" ₸">{{ summary.purchase_value | money_short }}</span>
     <span class="metric__meta">{{ t('reports.active_only') }}</span>
   </div>
   <div class="metric">
     <span class="metric__label">{{ t('reports.sale_value') }}</span>
-    <span class="metric__value">{{ summary.sale_value | money_short }}</span>
+    <span class="metric__value" data-count="{{ summary.sale_value // 100 }}" data-suffix=" ₸">{{ summary.sale_value | money_short }}</span>
     <span class="metric__meta">{{ t('reports.margin', value=(summary.sale_value - summary.purchase_value) | money_short) }}</span>
   </div>
   <div class="metric">
@@ -35,33 +35,128 @@
 </section>
 
 <div class="layout-2-1">
-  <section class="panel panel--flush">
+  <section class="panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('reports.flow_title') }}</h2>
+        <p class="panel__sub">{{ t('reports.flow_sub_' ~ ('day' if days <= 30 else 'week' if days <= 90 else 'month')) }}</p>
+      </div>
+      <div class="legend">
+        <span class="legend__item"><i class="legend__swatch legend__swatch--in"></i>{{ t('movement.IN') }}</span>
+        <span class="legend__item"><i class="legend__swatch legend__swatch--out"></i>{{ t('movement.OUT') }}</span>
+      </div>
+    </header>
+    {{ ui.flow_chart(series, peak, t('reports.flow_title')) }}
+  </section>
+
+  <section class="panel">
     <header class="panel__head">
       <div>
         <h2 class="panel__title">{{ t('reports.by_category') }}</h2>
-        <p class="panel__sub">{{ t('reports.by_category_sub') }}</p>
+        <p class="panel__sub">{{ t('reports.by_category_chart') }}</p>
       </div>
     </header>
-    {% if categories %}
-      <table class="table">
-        <thead><tr><th>{{ t('field.category') }}</th><th class="num">{{ t('reports.positions') }}</th><th class="num">{{ t('reports.units') }}</th><th class="num">{{ t('metric.value') }}</th><th class="col-share">{{ t('reports.share') }}</th></tr></thead>
-        <tbody>
-          {% for row in categories %}
-            <tr>
-              <td>{{ row.category or t('products.no_category') }}</td>
-              <td class="num">{{ row.count | number }}</td>
-              <td class="num">{{ row.units | number }}</td>
-              <td class="num">{{ row.value | money }}</td>
-              <td class="col-share"><span class="share"><span class="meter"><span class="meter__fill" style="width: {{ row.share }}%"></span></span><span class="share__pct">{{ row.share }}%</span></span></td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    {% if category_chart.total %}
+      <div class="donut-block">
+        {{ ui.donut(category_chart, categories | length, t('reports.categories_count')) }}
+        {{ ui.donut_legend(category_chart, money=True) }}
+      </div>
     {% else %}
       {{ ui.empty(t('reports.empty'), t('reports.empty_text')) }}
     {% endif %}
   </section>
+</div>
 
+<section class="panel abc" id="abc">
+  <header class="panel__head">
+    <div>
+      <h2 class="panel__title">{{ t('abc.title') }}</h2>
+      <p class="panel__sub">{{ t('abc.sub', days=days) }}</p>
+    </div>
+  </header>
+  {% if abc.total %}
+    <div class="abc__bar" role="img" aria-label="{{ t('abc.title') }}">
+      {% for g in abc.groups if g.value %}
+        <span class="abc__seg abc__seg--{{ g.key | lower }}" style="flex-grow: {{ g.value }}; --i: {{ loop.index0 }}"
+              data-tip="{{ g.key }} · {{ g.share }}% · {{ g.value | money_short }}"><b>{{ g.key }}</b>{{ g.share }}%</span>
+      {% endfor %}
+    </div>
+    <div class="abc__groups">
+      {% for g in abc.groups %}
+        <div class="abc__group">
+          <span class="abc__key abc__key--{{ g.key | lower }}">{{ g.key }}</span>
+          <div>
+            <p class="abc__name">{{ t('abc.group_' ~ g.key) }}</p>
+            <p class="muted">{{ t('abc.group_meta', count=g.count, value=g.value | money_short, share=g.share) }}</p>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <details class="disclosure abc__details">
+      <summary>{{ t('abc.show_table') }}</summary>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>{{ t('abc.class') }}</th><th>{{ t('field.sku') }}</th><th>{{ t('field.name') }}</th><th class="num">{{ t('abc.issued_value') }}</th><th class="num">{{ t('reports.share') }}</th></tr></thead>
+          <tbody>
+            {% for row in abc.rows[:50] %}
+              <tr>
+                <td><span class="abc__key abc__key--{{ row.group | lower }} abc__key--sm">{{ row.group }}</span></td>
+                <td><span class="sku">{{ row.sku }}</span></td>
+                <td><a class="row-link" href="{{ url_for('products.detail', product_id=row.id) }}">{{ row.name }}</a></td>
+                <td class="num">{{ row.value | money }}</td>
+                <td class="num">{{ row.share }}%</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% else %}
+    {{ ui.empty(t('abc.empty'), t('abc.empty_text')) }}
+  {% endif %}
+</section>
+
+<section class="section" id="forecast">
+  <div class="section__head">
+    <div>
+      <p class="eyebrow">{{ t('forecast.eyebrow') }}</p>
+      <h2 class="section-title">{{ t('forecast.title') }}</h2>
+      <p class="lede lede--sm">{{ t('forecast.lede') }}</p>
+    </div>
+    <a class="btn btn--ghost" href="{{ url_for('reports.reorder_pdf') }}" target="_blank" rel="noopener">{{ ui.icon('printer', 16) }}{{ t('forecast.pdf') }}</a>
+  </div>
+  <div class="panel panel--flush">
+    {% if forecast_rows %}
+      <div class="table-wrap">
+        <table class="table table--hover">
+          <thead>
+            <tr>
+              <th>{{ t('field.name') }}</th><th class="num">{{ t('field.quantity_left') }}</th>
+              <th class="num">{{ t('forecast.rate') }}</th><th>{{ t('forecast.enough_for') }}</th>
+              <th class="num">{{ t('forecast.reorder') }}</th><th class="num">{{ t('field.amount') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in forecast_rows %}
+              <tr data-href="{{ url_for('products.detail', product_id=row.id) }}">
+                <td><a class="row-link" href="{{ url_for('products.detail', product_id=row.id) }}">{{ row.name }}</a><span class="sku sku--block">{{ row.sku }}</span></td>
+                <td class="num">{{ row.quantity | number }} <span class="unit">{{ row.unit }}</span></td>
+                <td class="num">{{ row.rate | rate }} <span class="unit">/ {{ t('forecast.per_day') }}</span></td>
+                <td class="nowrap">{{ ui.days_left(row) }}</td>
+                <td class="num"><b class="strong">{{ row.reorder | number }}</b> <span class="unit">{{ row.unit }}</span></td>
+                <td class="num muted">{{ (row.reorder * row.purchase_price) | money_short }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {{ ui.empty(t('forecast.empty'), t('forecast.empty_text')) }}
+    {% endif %}
+  </div>
+</section>
+
+<div class="layout-2-1 section">
   <section class="panel">
     <header class="panel__head">
       <div>
@@ -83,12 +178,48 @@
       {{ ui.empty(t('dash.top_empty'), t('dash.top_empty_text')) }}
     {% endif %}
   </section>
+
+  <section class="panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('nav.warehouses') }}</h2>
+        <p class="panel__sub">{{ t('dash.warehouses_sub') }}</p>
+      </div>
+    </header>
+    <ol class="rank">
+      {% for w in warehouses %}
+        <li class="rank__row">
+          <span class="rank__pos">{{ '%02d' % loop.index }}</span>
+          <span class="rank__body"><span class="rank__name">{{ w.name }}</span><span class="meter meter--quiet"><span class="meter__fill" style="width: {{ w.share }}%"></span></span></span>
+          <span class="rank__qty">{{ w.value | money_short }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
 </div>
 
 <section class="section">
   <p class="eyebrow">{{ t('reports.export_eyebrow') }}</p>
   <h2 class="section-title">{{ t('reports.export_title') }}</h2>
   <div class="exports">
+    <a class="export" href="{{ url_for('reports.stock_pdf') }}" target="_blank" rel="noopener">
+      {{ ui.icon('printer', 22) }}
+      <span class="export__title">{{ t('reports.pdf_stock') }}</span>
+      <span class="export__text">{{ t('reports.pdf_stock_text') }}</span>
+      <span class="export__meta">PDF · A4</span>
+    </a>
+    <a class="export" href="{{ url_for('reports.movements_pdf', days=days) }}" target="_blank" rel="noopener">
+      {{ ui.icon('printer', 22) }}
+      <span class="export__title">{{ t('reports.pdf_movements') }}</span>
+      <span class="export__text">{{ t('reports.export_movements_text', days=days) }}</span>
+      <span class="export__meta">PDF · A4</span>
+    </a>
+    <a class="export" href="{{ url_for('reports.reorder_pdf') }}" target="_blank" rel="noopener">
+      {{ ui.icon('printer', 22) }}
+      <span class="export__title">{{ t('forecast.pdf') }}</span>
+      <span class="export__text">{{ t('reports.pdf_reorder_text') }}</span>
+      <span class="export__meta">PDF · A4</span>
+    </a>
     <a class="export" href="{{ url_for('reports.products_csv') }}">
       {{ ui.icon('download', 22) }}
       <span class="export__title">{{ t('reports.export_products') }}</span>

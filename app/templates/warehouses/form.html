@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ warehouse.name }}{% endblock %}
+{% block content %}
+
+<a class="crumb" href="{{ url_for('warehouses.index') }}">{{ ui.icon('back', 16) }}{{ t('nav.warehouses') }}</a>
+{{ ui.head('04 — ' ~ t('nav.warehouses'), warehouse.name, t('warehouses.form_lede')) }}
+
+<form class="form-layout" method="post">
+  {{ ui.csrf() }}
+  {{ ui.alert(error) }}
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('warehouses.section') }}</h2>
+      <p>{{ t('warehouses.section_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      {{ ui.field('name', t('field.warehouse_name'), form.name, required=True, attrs='maxlength="100" autofocus') }}
+      {{ ui.field('address', t('field.address'), form.address, attrs='maxlength="250"') }}
+    </div>
+  </section>
+  <div class="form-actions">
+    <a class="btn btn--text" href="{{ url_for('warehouses.index') }}">{{ t('action.cancel') }}</a>
+    <button class="btn btn--primary">{{ t('action.save') }}</button>
+  </div>
+</form>
+
+<section class="danger">
+  <div>
+    <h2 class="form-section__title">{{ t('warehouses.delete_title') }}</h2>
+    <p class="muted">{{ t('warehouses.delete_text') }}</p>
+  </div>
+  <form method="post" action="{{ url_for('warehouses.delete', warehouse_id=warehouse.id) }}" data-confirm="{{ t('warehouses.delete_confirm') }}">
+    {{ ui.csrf() }}
+    <button class="btn btn--danger">{{ ui.icon('trash', 16) }}{{ t('action.delete') }}</button>
+  </form>
+</section>
+{% endblock %}

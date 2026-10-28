@@ -4,66 +4,155 @@
 {% block content %}
 
 <a class="crumb" href="{{ url_for('products.index') }}">{{ ui.icon('back', 16) }}{{ t('nav.products') }}</a>
-{% call ui.head(product.sku, product.name, (product.category or t('products.no_category')) ~ ' · ' ~ product.unit) %}
-  <a class="btn btn--ghost" href="{{ url_for('products.edit', product_id=product.id) }}">{{ ui.icon('edit', 16) }}{{ t('action.edit') }}</a>
-  <form method="post" action="{{ url_for('products.toggle', product_id=product.id) }}"
-        {% if product.is_active %}data-confirm="{{ t('products.archive_confirm') }}"{% endif %}>
-    {{ ui.csrf() }}
-    <button class="btn btn--ghost">{{ ui.icon('archive' if product.is_active else 'restore', 16) }}{{ t('action.archive') if product.is_active else t('action.restore') }}</button>
-  </form>
-{% endcall %}
+<div class="product-head">
+  <div class="product-photo">
+    {{ ui.photo(product, 'lg') }}
+    {% if can('manage') %}
+      <form class="product-photo__actions" method="post" action="{{ url_for('products.photo', product_id=product.id) }}" enctype="multipart/form-data" data-photo-form>
+        {{ ui.csrf() }}
+        <label class="btn btn--ghost btn--sm product-photo__pick">
+          {{ ui.icon('image', 14) }}{{ t('action.change_photo') if product.photo_path else t('action.add_photo') }}
+          <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" data-photo-input>
+        </label>
+        {% if product.photo_path %}<button class="btn btn--text btn--sm" name="remove" value="1">{{ t('action.delete') }}</button>{% endif %}
+      </form>
+    {% endif %}
+  </div>
+  {% call ui.head(product.sku, product.name, (product.category or t('products.no_category')) ~ ' · ' ~ product.unit) %}
+    {% if can('manage') %}
+      <a class="btn btn--ghost" href="{{ url_for('products.edit', product_id=product.id) }}">{{ ui.icon('edit', 16) }}{{ t('action.edit') }}</a>
+      <form method="post" action="{{ url_for('products.toggle', product_id=product.id) }}"
+            {% if product.is_active %}data-confirm="{{ t('products.archive_confirm') }}"{% endif %}>
+        {{ ui.csrf() }}
+        <button class="btn btn--ghost">{{ ui.icon('archive' if product.is_active else 'restore', 16) }}{{ t('action.archive') if product.is_active else t('action.restore') }}</button>
+      </form>
+    {% endif %}
+  {% endcall %}
+</div>
 
 {% if not product.is_active %}{{ ui.alert(t('products.archived_note'), 'info') }}{% endif %}
 
 <section class="metrics metrics--5">
   <div class="metric">
     <span class="metric__label">{{ t('field.quantity_left') }}</span>
-    <span class="metric__value {% if low %}is-signal{% endif %}">{{ product.quantity | number }}</span>
+    <span class="metric__value {% if low %}is-signal{% endif %}" data-count="{{ product.quantity }}">{{ product.quantity | number }}</span>
     <span class="metric__meta">{{ product.unit }} · {{ ui.stock_state(product) }}</span>
   </div>
   <div class="metric">
-    <span class="metric__label">{{ t('field.min_quantity') }}</span>
-    <span class="metric__value">{{ product.min_quantity | number }}</span>
-    <span class="metric__meta">{{ product.unit }}</span>
+    <span class="metric__label">{{ t('forecast.rate') }}</span>
+    <span class="metric__value metric__value--sm">{{ forecast.rate | rate }}</span>
+    <span class="metric__meta">{{ t('forecast.rate_meta', unit=product.unit) }}</span>
   </div>
   <div class="metric">
-    <span class="metric__label">{{ t('field.purchase_price') }}</span>
-    <span class="metric__value metric__value--sm">{{ product.purchase_price | money }}</span>
+    <span class="metric__label">{{ t('forecast.enough_for') }}</span>
+    <span class="metric__value metric__value--sm {% if forecast.level == 'critical' %}is-signal{% endif %}">
+      {% if forecast.days_left is none %}∞{% else %}{{ t('forecast.days', days=forecast.days_left) }}{% endif %}</span>
+    <span class="metric__meta">{{ t('forecast.window', days=30) }}</span>
   </div>
   <div class="metric">
-    <span class="metric__label">{{ t('field.sale_price') }}</span>
-    <span class="metric__value metric__value--sm">{{ product.sale_price | money }}</span>
+    <span class="metric__label">{{ t('forecast.reorder') }}</span>
+    <span class="metric__value metric__value--sm">{{ forecast.reorder | number }}</span>
+    <span class="metric__meta">{{ product.unit }} · ≈ {{ (forecast.reorder * product.purchase_price) | money_short }}</span>
   </div>
   <div class="metric">
     <span class="metric__label">{{ t('metric.stock_value') }}</span>
-    <span class="metric__value metric__value--sm">{{ (product.quantity * product.purchase_price) | money }}</span>
+    <span class="metric__value metric__value--sm">{{ (product.quantity * product.purchase_price) | money_short }}</span>
+    <span class="metric__meta">{{ product.purchase_price | money }} / {{ product.sale_price | money }}</span>
   </div>
 </section>
+
+{% if warehouses | length > 1 or balance %}
+<div class="layout-2-1">
+  <section class="panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('products.balance_title') }}</h2>
+        <p class="panel__sub">{{ t('products.balance_sub') }}</p>
+      </div>
+    </header>
+    {% if balance %}
+      <div class="linechart">
+        <div class="chart__axis"><span>{{ balance.peak | number }}</span><span>0</span></div>
+        <div class="linechart__plot">
+          <svg viewBox="0 0 {{ balance.width }} {{ balance.height }}" preserveAspectRatio="none" role="img" aria-label="{{ t('products.balance_title') }}">
+            <path class="linechart__area" d="{{ balance.area }}"/>
+            <path class="linechart__line" d="{{ balance.path }}" pathLength="1"/>
+            {% if product.min_quantity %}
+              {% set min_y = balance.height - product.min_quantity / balance.peak * (balance.height - 8) %}
+              {% if min_y > 0 %}<line class="linechart__min" x1="0" x2="{{ balance.width }}" y1="{{ min_y }}" y2="{{ min_y }}"/>{% endif %}
+            {% endif %}
+          </svg>
+          {% for point in balance.markers %}
+            <span class="linechart__dot" style="left: {{ point.x / balance.width * 100 }}%; top: {{ point.y / balance.height * 100 }}%"
+                  data-tip="{{ point.time.strftime('%d.%m %H:%M') }} · {{ point.value | number }} {{ product.unit }}"></span>
+          {% endfor %}
+          <div class="linechart__dates"><span>{{ balance.start.strftime('%d.%m.%Y') }}</span><span>{{ t('products.today') }}</span></div>
+        </div>
+      </div>
+      {% if product.min_quantity %}<p class="linechart__note"><i></i>{{ t('field.min_quantity') }}: {{ product.min_quantity | number }} {{ product.unit }}</p>{% endif %}
+    {% else %}
+      {{ ui.empty(t('products.history_empty'), t('products.history_empty_text')) }}
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('products.by_warehouse') }}</h2>
+        <p class="panel__sub">{{ t('products.by_warehouse_sub') }}</p>
+      </div>
+    </header>
+    <ul class="wlist">
+      {% for w in warehouses %}
+        {% set qty = in_warehouse.get(w.id, 0) %}
+        <li>
+          <span class="wlist__name">{{ ui.icon('warehouse', 15) }}{{ w.name }}</span>
+          <span class="wlist__qty"><b>{{ qty | number }}</b> {{ product.unit }}</span>
+          <span class="meter meter--quiet"><span class="meter__fill" style="width: {{ (qty / product.quantity * 100) | round | int if product.quantity else 0 }}%"></span></span>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endif %}
 
 <div class="layout-1-2">
   <section class="panel">
     <header class="panel__head"><h2 class="panel__title">{{ t('movements.form_title') }}</h2></header>
-    {% if product.is_active %}
+    {% if not can('operate') %}
+      <p class="muted">{{ t('roles.read_only') }}</p>
+    {% elif product.is_active %}
       <form class="stack" method="post" action="{{ url_for('movements.create') }}" data-movement-form>
         {{ ui.csrf() }}
         <input type="hidden" name="product_id" value="{{ product.id }}">
         <input type="hidden" name="next" value="{{ url_for('products.detail', product_id=product.id) }}">
-        <div class="segmented">
+        <div class="segmented segmented--{{ 3 if warehouses | length > 1 else 2 }}">
           <label><input type="radio" name="movement_type" value="IN" checked><span>{{ t('movement.IN') }}</span></label>
           <label><input type="radio" name="movement_type" value="OUT"><span>{{ t('movement.OUT') }}</span></label>
+          {% if warehouses | length > 1 %}<label><input type="radio" name="movement_type" value="TRANSFER"><span>{{ t('movement.TRANSFER') }}</span></label>{% endif %}
         </div>
+        {% set wh_options = [] %}{% for w in warehouses %}{% set _ = wh_options.append((w.id, w.name ~ ' · ' ~ (in_warehouse.get(w.id, 0) | number) ~ ' ' ~ product.unit)) %}{% endfor %}
+        <label class="field" {% if warehouses | length < 2 %}hidden{% endif %}>
+          <span class="field__label" data-from-label data-text-in="{{ t('field.warehouse') }}" data-text-transfer="{{ t('field.from_warehouse') }}">{{ t('field.warehouse') }}</span>
+          {{ ui.select('warehouse_id', wh_options, warehouses[0].id if warehouses else '') }}
+        </label>
+        {% if warehouses | length > 1 %}
+          <label class="field" data-only-transfer hidden>
+            <span class="field__label">{{ t('field.to_warehouse') }}</span>
+            {{ ui.select('to_warehouse_id', wh_options, warehouses[1].id) }}
+          </label>
+        {% endif %}
         {{ ui.field('quantity', t('field.quantity') ~ ', ' ~ product.unit, type='number', required=True, attrs='min="1" step="1" inputmode="numeric"') }}
         {% if suppliers %}
           <label class="field" data-only-in>
             <span class="field__label">{{ t('field.supplier') }}</span>
-            <span class="select select--block">
-              <select name="supplier_id">
-                <option value="">{{ t('movements.no_supplier') }}</option>
-                {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
-              </select>{{ ui.icon('chevron', 14) }}
-            </span>
+            {{ ui.select('supplier_id', suppliers | options, '', t('movements.no_supplier')) }}
           </label>
         {% endif %}
+        <label class="field" data-only-out hidden>
+          <span class="field__label">{{ t('field.counterparty') }}</span>
+          <input class="input" name="counterparty" maxlength="150" placeholder="{{ t('movements.counterparty_placeholder') }}">
+        </label>
         {{ ui.field('note', t('field.note'), placeholder=t('movements.note_placeholder'), attrs='maxlength="200"') }}
         <button class="btn btn--primary btn--block">{{ t('action.record') }}</button>
       </form>
@@ -86,15 +175,17 @@
     {% if movements %}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>{{ t('field.date') }}</th><th>{{ t('field.type') }}</th><th class="num">{{ t('field.quantity') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th></tr></thead>
+          <thead><tr><th>{{ t('field.date') }}</th><th>{{ t('field.type') }}</th><th>{{ t('field.warehouse') }}</th><th class="num">{{ t('field.quantity') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th><th></th></tr></thead>
           <tbody>
             {% for m in movements %}
               <tr>
                 <td class="muted nowrap">{{ m.created_at | datetime }}</td>
                 <td>{{ ui.movement_tag(m.movement_type) }}</td>
+                <td class="muted nowrap">{{ ui.place(m) }}</td>
                 <td class="num nowrap">{{ ui.movement_qty(m) }}</td>
                 <td class="num">{{ m.balance_after | number }}</td>
                 <td class="muted">{% if m.supplier %}{{ m.supplier.name }}{% if m.note %} · {% endif %}{% endif %}{{ m.note }}</td>
+                <td class="num">{{ ui.doc_link(m) }}</td>
               </tr>
             {% endfor %}
           </tbody>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('nav.warehouses') }}{% endblock %}
+{% block content %}
+
+{% call ui.head('04 — ' ~ t('nav.warehouses'), t('warehouses.title'), t('warehouses.lede')) %}
+  {% if can('operate') and warehouses | length > 1 %}
+    <a class="btn btn--ghost" href="{{ url_for('movements.index', op='TRANSFER') }}">{{ ui.icon('transfer', 16) }}{{ t('warehouses.transfer') }}</a>
+  {% endif %}
+{% endcall %}
+
+<div class="wcards">
+  {% for w in warehouses %}
+    <article class="wcard">
+      <header class="wcard__head">
+        <span class="wcard__icon">{{ ui.icon('warehouse', 20) }}</span>
+        <div class="minw0">
+          <h2 class="wcard__name">{{ w.name }}</h2>
+          <p class="wcard__addr">{{ w.address or t('warehouses.no_address') }}</p>
+        </div>
+        {% if can('manage') %}<a class="tool" href="{{ url_for('warehouses.edit', warehouse_id=w.id) }}" aria-label="{{ t('action.edit') }}">{{ ui.icon('edit', 16) }}</a>{% endif %}
+      </header>
+      <dl class="wcard__stats">
+        <div><dt>{{ t('reports.positions') }}</dt><dd data-count="{{ w.positions }}">{{ w.positions | number }}</dd></div>
+        <div><dt>{{ t('reports.units') }}</dt><dd data-count="{{ w.units }}">{{ w.units | number }}</dd></div>
+        <div><dt>{{ t('metric.value') }}</dt><dd>{{ w.value | money_short }}</dd></div>
+      </dl>
+      <div class="wcard__share" data-tip="{{ t('reports.share') }}: {{ w.share }}%">
+        <span class="meter"><span class="meter__fill meter__fill--accent" style="width: {{ w.bar }}%"></span></span>
+        <span class="share__pct">{{ w.share }}%</span>
+      </div>
+      <footer class="wcard__foot">
+        {% if can('operate') %}<a class="link link--quiet" href="{{ url_for('stocktake.index', warehouse=w.id) }}">{{ t('nav.stocktake') }} →</a>{% endif %}
+        {% if can('reports') %}<a class="link link--quiet" href="{{ url_for('reports.stock_pdf', warehouse=w.id) }}" target="_blank" rel="noopener">{{ ui.icon('printer', 14) }}{{ t('warehouses.stock_pdf') }}</a>{% endif %}
+      </footer>
+    </article>
+  {% endfor %}
+
+  {% if can('manage') %}
+    <form class="wcard wcard--new" method="post" action="{{ url_for('warehouses.create') }}">
+      {{ ui.csrf() }}
+      <h2 class="wcard__name">{{ ui.icon('plus', 18) }}{{ t('warehouses.new') }}</h2>
+      {{ ui.alert(error) }}
+      {{ ui.field('name', t('field.warehouse_name'), form.name, required=True, placeholder=t('warehouses.name_placeholder'), attrs='maxlength="100"') }}
+      {{ ui.field('address', t('field.address'), form.address, attrs='maxlength="250"') }}
+      <button class="btn btn--primary btn--block">{{ t('action.save') }}</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

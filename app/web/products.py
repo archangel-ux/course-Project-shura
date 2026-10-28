@@ -1,15 +1,34 @@
+from datetime import datetime, timedelta
+
 from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 
 from app.i18n import error_text, t
-from app.services import csv_io, inventory
-from app.services.formatting import money_to_input
+from app.services import analytics, csv_io, forecast, inventory
+from app.services.formatting import LOCAL_TZ, money_to_input
 from app.services.validators import ValidationError, parse_quantity
-from app.store import StoreError
-from app.web.session import get_store, login_required
+from app.store import StoreError, parallel
+from app.web.session import current_org, get_store, login_required, permission_required
 
 bp = Blueprint("products", __name__, url_prefix="/products")
 
 STATUSES = ("active", "low", "inactive", "all")
+
+# Recognised by their first bytes, not by the file name or the browser's claim.
+IMAGE_SIGNATURES = (
+    (b"\xff\xd8\xff", "image/jpeg", "jpg"),
+    (b"\x89PNG\r\n\x1a\n", "image/png", "png"),
+)
+
+MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+
+def _image_type(content):
+    for signature, mime, extension in IMAGE_SIGNATURES:
+        if content.startswith(signature):
+            return mime, extension
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp", "webp"
+    return None
 
 
 def _product_or_404(product_id):
@@ -31,7 +50,12 @@ def _form_values(product):
 @bp.route("/")
 @login_required
 def index():
-    products = get_store().list_products()
+    store = get_store()
+    now = datetime.now(LOCAL_TZ)
+    products, movements = parallel(
+        store.list_products, lambda: store.list_movements(since=now - timedelta(days=forecast.WINDOW_DAYS)),
+    )
+    forecasts = forecast.forecast_all(products, movements, now)
     query = request.args.get("q", "")
     category = request.args.get("category", "")
     status = request.args.get("status", "active")
@@ -42,27 +66,29 @@ def index():
         "products/index.html",
         products=inventory.filter_products(products, query, category, status),
         categories=inventory.categories(products),
-        counts=counts, query=query, category=category, status=status,
+        counts=counts, query=query, category=category, status=status, forecasts=forecasts,
     )
 
 
 def _render_form(product=None, form=None, error=None):
-    products = get_store().list_products()
+    store = get_store()
+    products, warehouses = parallel(store.list_products, store.list_warehouses)
     return render_template(
         "products/form.html", product=product, form=form or {}, error=error,
-        categories=inventory.categories(products), units=inventory.UNITS,
+        categories=inventory.categories(products), units=inventory.UNITS, warehouses=warehouses,
     )
 
 
 @bp.route("/new", methods=["GET", "POST"])
-@login_required
+@permission_required("manage")
 def create():
     if request.method == "GET":
         return _render_form(form={"unit": inventory.UNITS[0]})
     try:
         data = inventory.clean_product_form(request.form)
         initial = parse_quantity(request.form.get("quantity"), "field.initial_quantity")
-        product_id = get_store().create_product(data, initial, t("note.initial"))
+        warehouse_id = int(request.form.get("warehouse_id") or 0) or None
+        product_id = get_store().create_product(data, initial, t("note.initial"), warehouse_id)
     except (ValidationError, StoreError) as error:
         return _render_form(form=request.form, error=error_text(error)), 400
     flash(t("msg.product_created"), "success")
@@ -72,16 +98,29 @@ def create():
 @bp.route("/<int:product_id>")
 @login_required
 def detail(product_id):
-    product = _product_or_404(product_id)
-    movements = get_store().list_movements(product_id=product_id, limit=100)
+    store = get_store()
+    now = datetime.now(LOCAL_TZ)
+    product, movements, suppliers, warehouses, stock = parallel(
+        lambda: store.get_product(product_id),
+        lambda: store.list_movements(product_id=product_id, limit=300),
+        store.list_suppliers, store.list_warehouses,
+        lambda: store.list_stock(product_id=product_id),
+    )
+    if product is None:
+        abort(404)
+    in_warehouse = {row["warehouse_id"]: row["quantity"] for row in stock}
+    since = now - timedelta(days=forecast.WINDOW_DAYS)
+    issued = forecast.consumption(movements, since).get(product_id, 0)
     return render_template(
-        "products/detail.html", product=product, movements=movements,
-        suppliers=get_store().list_suppliers(), low=inventory.is_low_stock(product),
+        "products/detail.html", product=product, movements=movements[:100],
+        suppliers=suppliers, warehouses=warehouses, in_warehouse=in_warehouse,
+        low=inventory.is_low_stock(product), forecast=forecast.forecast(product, issued, now),
+        balance=analytics.balance_series(movements, product["quantity"], now),
     )
 
 
 @bp.route("/<int:product_id>/edit", methods=["GET", "POST"])
-@login_required
+@permission_required("manage")
 def edit(product_id):
     product = _product_or_404(product_id)
     if request.method == "GET":
@@ -95,7 +134,7 @@ def edit(product_id):
 
 
 @bp.route("/<int:product_id>/toggle", methods=["POST"])
-@login_required
+@permission_required("manage")
 def toggle(product_id):
     product = _product_or_404(product_id)
     get_store().set_product_active(product_id, not product["is_active"])
@@ -103,8 +142,39 @@ def toggle(product_id):
     return redirect(url_for("products.detail", product_id=product_id))
 
 
+@bp.route("/<int:product_id>/photo", methods=["POST"])
+@permission_required("manage")
+def photo(product_id):
+    product = _product_or_404(product_id)
+    back = redirect(url_for("products.detail", product_id=product_id))
+    store = get_store()
+    if request.form.get("remove"):
+        store.remove_photo(product)
+        flash(t("msg.photo_removed"), "success")
+        return back
+    upload = request.files.get("photo")
+    content = upload.read(MAX_PHOTO_BYTES + 1) if upload and upload.filename else b""
+    if not content:
+        flash(t("err.photo_missing"), "error")
+        return back
+    if len(content) > MAX_PHOTO_BYTES:
+        flash(t("err.photo_too_large"), "error")
+        return back
+    kind = _image_type(content)
+    if kind is None:
+        flash(t("err.photo_type"), "error")
+        return back
+    try:
+        store.upload_photo(current_org()["id"], product, content, *kind)
+    except StoreError as error:
+        flash(error_text(error), "error")
+        return back
+    flash(t("msg.photo_saved"), "success")
+    return back
+
+
 @bp.route("/import", methods=["GET", "POST"])
-@login_required
+@permission_required("manage")
 def import_products():
     if request.method == "GET":
         return render_template("products/import.html", result=None, error=None)
@@ -136,7 +206,7 @@ def import_products():
 
 
 @bp.route("/import/template.csv")
-@login_required
+@permission_required("manage")
 def import_template():
     return Response(
         csv_io.template_csv(t), mimetype="text/csv",

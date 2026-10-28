@@ -13,7 +13,8 @@ from app.services.validators import (
 )
 
 UNITS = ("дана", "кг", "г", "л", "м", "қорап", "жәшік", "орам", "жұп")
-MOVEMENT_TYPES = ("IN", "OUT")
+MOVEMENT_TYPES = ("IN", "OUT", "TRANSFER")
+ROLES = ("owner", "storekeeper", "accountant")
 
 
 # ---------------------------------------------------------------- products
@@ -76,36 +77,92 @@ def low_stock(products):
     return sorted(rows, key=lambda p: (p["quantity"] - p["min_quantity"], p["name"].lower()))
 
 
-# ---------------------------------------------------------------- movements
+# ---------------------------------------------------------------- documents (receipt / issue / transfer)
 
-def clean_movement_form(form, product_ids, supplier_ids):
+MAX_DOCUMENT_LINES = 100
+
+
+def _to_int(value):
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def clean_document_form(form, product_ids, warehouse_ids, supplier_ids):
+    """Several lines of product + quantity. Lines with the same product are merged."""
     movement_type = form.get("movement_type")
     if movement_type not in MOVEMENT_TYPES:
         raise ValidationError("err.invalid_type")
-    try:
-        product_id = int(form.get("product_id") or 0)
-    except ValueError:
-        product_id = 0
-    if product_id not in product_ids:
-        raise ValidationError("err.choose_product")
+
+    warehouse_id = _to_int(form.get("warehouse_id"))
+    if warehouse_id not in warehouse_ids:
+        raise ValidationError("err.choose_warehouse")
+    to_warehouse_id = None
+    if movement_type == "TRANSFER":
+        to_warehouse_id = _to_int(form.get("to_warehouse_id"))
+        if to_warehouse_id not in warehouse_ids or to_warehouse_id == warehouse_id:
+            raise ValidationError("err.invalid_transfer")
 
     supplier_id = None
-    raw_supplier = form.get("supplier_id") or ""
-    if movement_type == "IN" and raw_supplier:
-        try:
-            supplier_id = int(raw_supplier)
-        except ValueError:
-            supplier_id = None
+    if movement_type == "IN" and form.get("supplier_id"):
+        supplier_id = _to_int(form.get("supplier_id"))
         if supplier_id not in supplier_ids:
             raise ValidationError("err.not_found")
 
+    quantities = {}
+    raw_products = form.getlist("product_id") if hasattr(form, "getlist") else [form.get("product_id")]
+    raw_quantities = form.getlist("quantity") if hasattr(form, "getlist") else [form.get("quantity")]
+    for raw_product, raw_quantity in zip(raw_products, raw_quantities):
+        if not raw_product and not str(raw_quantity or "").strip():
+            continue
+        product_id = _to_int(raw_product)
+        if product_id not in product_ids:
+            raise ValidationError("err.choose_product")
+        quantity = parse_quantity(raw_quantity, "field.quantity", allow_zero=False)
+        quantities[product_id] = quantities.get(product_id, 0) + quantity
+    if not quantities:
+        raise ValidationError("err.choose_product")
+    if len(quantities) > MAX_DOCUMENT_LINES:
+        raise ValidationError("err.too_many_lines", max=MAX_DOCUMENT_LINES)
+
     return {
-        "product_id": product_id,
         "movement_type": movement_type,
-        "quantity": parse_quantity(form.get("quantity"), "field.quantity", allow_zero=False),
-        "note": optional_text(form.get("note"), "field.note", max_length=200),
+        "warehouse_id": warehouse_id,
+        "to_warehouse_id": to_warehouse_id,
         "supplier_id": supplier_id,
+        "counterparty": optional_text(form.get("counterparty"), "field.counterparty", max_length=150)
+        if movement_type == "OUT" else "",
+        "note": optional_text(form.get("note"), "field.note", max_length=200),
+        "items": [{"product_id": pid, "quantity": qty} for pid, qty in quantities.items()],
     }
+
+
+def stock_map(stock_rows):
+    """{product_id: {warehouse_id: quantity}}"""
+    result = {}
+    for row in stock_rows:
+        result.setdefault(row["product_id"], {})[row["warehouse_id"]] = row["quantity"]
+    return result
+
+
+def warehouse_summary(warehouses, products, stock_rows):
+    """Positions, units and purchase value per warehouse (active products only)."""
+    active = {p["id"]: p for p in products if p["is_active"]}
+    rows = {w["id"]: {**w, "positions": 0, "units": 0, "value": 0} for w in warehouses}
+    for row in stock_rows:
+        product = active.get(row["product_id"])
+        target = rows.get(row["warehouse_id"])
+        if not product or not target or row["quantity"] <= 0:
+            continue
+        target["positions"] += 1
+        target["units"] += row["quantity"]
+        target["value"] += row["quantity"] * product["purchase_price"]
+    total = sum(r["value"] for r in rows.values()) or 1
+    result = list(rows.values())
+    for row in result:
+        row["share"] = round(row["value"] / total * 100)
+    return result
 
 
 def filter_movements(movements, movement_type="", text=""):
@@ -120,6 +177,7 @@ def filter_movements(movements, movement_type="", text=""):
             haystack = " ".join([
                 product.get("name") or "", product.get("sku") or "",
                 supplier.get("name") or "", movement.get("note") or "",
+                (movement.get("warehouse") or {}).get("name") or "",
             ]).lower()
             if needle not in haystack:
                 continue
@@ -139,17 +197,41 @@ def clean_supplier_form(form):
     }
 
 
+# ---------------------------------------------------------------- warehouses & organization
+
+def clean_warehouse_form(form):
+    return {
+        "name": require_text(form.get("name"), "field.warehouse_name", max_length=100),
+        "address": optional_text(form.get("address"), "field.address", max_length=250),
+    }
+
+
+def clean_organization_form(form):
+    return {
+        "name": require_text(form.get("name"), "field.org_name"),
+        "bin": optional_text(form.get("bin"), "field.bin", max_length=20),
+        "address": optional_text(form.get("address"), "field.address", max_length=250),
+        "phone": optional_text(form.get("phone"), "field.phone", max_length=40),
+        "director": optional_text(form.get("director"), "field.director", max_length=120),
+        "bank": optional_text(form.get("bank"), "field.bank"),
+        "iban": optional_text(form.get("iban"), "field.iban", max_length=40).replace(" ", "").upper(),
+        "bik": optional_text(form.get("bik"), "field.bik", max_length=20).upper(),
+    }
+
+
 # ---------------------------------------------------------------- stocktake
 
-def clean_stocktake_form(form, products):
-    """Read 'counted_<id>' fields. Empty fields are skipped (product not counted)."""
+def clean_stocktake_form(form, products, in_warehouse):
+    """Read 'counted_<id>' fields. Empty fields are skipped (product not counted).
+    in_warehouse: {product_id: quantity} for the warehouse being counted."""
     items = []
     for product in products:
         raw = (form.get(f"counted_{product['id']}") or "").strip()
         if raw == "":
             continue
         counted = parse_quantity(raw, "field.counted")
-        items.append({"product_id": product["id"], "counted": counted, "difference": counted - product["quantity"]})
+        current = in_warehouse.get(product["id"], 0)
+        items.append({"product_id": product["id"], "counted": counted, "difference": counted - current})
     if not items:
         raise ValidationError("err.stocktake_empty")
     return items

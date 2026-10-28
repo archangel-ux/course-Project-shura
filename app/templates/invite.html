@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('invite.title') }}{% endblock %}
+{% block content %}
+<div class="invite">
+  <span class="invite__mark">{{ ui.icon('users', 26) }}</span>
+  {% if info %}
+    <p class="eyebrow">{{ t('invite.eyebrow') }}</p>
+    <h1 class="title">{{ info.organization_name }}</h1>
+    <p class="lede">{{ t('invite.lede', role=t('role.' ~ info.role)) }}</p>
+    <p class="invite__role">{{ ui.role_badge(info.role) }} <span class="muted">{{ t('role.' ~ info.role ~ '_text') }}</span></p>
+    {% if info.matches %}
+      <form method="post">
+        {{ ui.csrf() }}
+        <button class="btn btn--primary btn--lg">{{ t('invite.accept') }}{{ ui.icon('arrow', 16) }}</button>
+      </form>
+    {% else %}
+      {{ ui.alert(t('err.invite_email_for', invited=info.email, email=email)) }}
+    {% endif %}
+  {% else %}
+    <h1 class="title">{{ t('invite.invalid') }}</h1>
+    <p class="lede">{{ t('invite.invalid_text') }}</p>
+    <a class="btn btn--ghost" href="{{ url_for('main.dashboard') }}">{{ t('error.home') }}</a>
+  {% endif %}
+</div>
+{% endblock %}

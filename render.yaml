@@ -20,3 +20,7 @@ services:
         sync: false
       - key: APP_TIMEZONE
         value: Asia/Almaty
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CRON_SECRET
+        sync: false

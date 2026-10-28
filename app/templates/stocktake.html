@@ -6,12 +6,10 @@
 {{ ui.head('04 — ' ~ t('nav.stocktake'), t('stocktake.title'), t('stocktake.lede')) }}
 
 <form class="toolbar" method="get" data-autosubmit>
-  <div class="select">
-    <select name="category" aria-label="{{ t('field.category') }}">
-      <option value="">{{ t('products.all_categories') }}</option>
-      {% for c in categories %}<option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>{% endfor %}
-    </select>{{ ui.icon('chevron', 14) }}
-  </div>
+  {% if warehouses | length > 1 %}
+    {{ ui.select('warehouse', warehouses | options, warehouse_id, block=False, label=t('field.warehouse')) }}
+  {% endif %}
+  {{ ui.select('category', categories | pairs, category, t('products.all_categories'), block=False, label=t('field.category')) }}
   <p class="toolbar__note">{{ t('stocktake.how') }}</p>
 </form>
 
@@ -19,7 +17,7 @@
 
 {% if products %}
 <form method="post" data-stocktake>
-  {{ ui.csrf() }}
+  {{ ui.csrf() }}<input type="hidden" name="warehouse_id" value="{{ warehouse_id }}">
   <section class="panel panel--flush">
     <div class="table-wrap">
       <table class="table">
@@ -32,11 +30,12 @@
           </tr>
         </thead>
         <tbody>
-          {% for p in products %}
-            <tr data-system="{{ p.quantity }}">
+          {% for p in products if p.is_active %}
+            {% set system = in_warehouse.get(p.id, 0) %}
+            <tr data-system="{{ system }}">
               <td><span class="sku">{{ p.sku }}</span></td>
               <td>{{ p.name }} <span class="muted">· {{ p.category or '—' }}</span></td>
-              <td class="num">{{ p.quantity | number }} <span class="unit">{{ p.unit }}</span></td>
+              <td class="num">{{ system | number }} <span class="unit">{{ p.unit }}</span></td>
               <td class="num col-input">
                 <input class="input input--cell" type="number" name="counted_{{ p.id }}" min="0" step="1" inputmode="numeric"
                        value="{{ form['counted_' ~ p.id] or '' }}" placeholder="—" aria-label="{{ t('stocktake.counted') }}: {{ p.name }}">
@@ -56,7 +55,7 @@
   </div>
 </form>
 {% else %}
-  <section class="panel">{{ ui.empty(t('stocktake.empty'), t('stocktake.empty_text'), url_for('products.create'), t('action.new_product')) }}</section>
+  <section class="panel">{{ ui.empty(t('stocktake.empty'), t('stocktake.empty_text'), url_for('products.create') if can('manage') else None, t('action.new_product')) }}</section>
 {% endif %}
 
 <section class="section">
@@ -65,15 +64,17 @@
   <div class="panel panel--flush">
     {% if history %}
       <table class="table">
-        <thead><tr><th>{{ t('field.date') }}</th><th>{{ t('field.product') }}</th><th class="num">{{ t('stocktake.difference') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th></tr></thead>
+        <thead><tr><th>{{ t('field.date') }}</th><th>{{ t('field.product') }}</th><th>{{ t('field.warehouse') }}</th><th class="num">{{ t('stocktake.difference') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th><th></th></tr></thead>
         <tbody>
           {% for m in history %}
             <tr>
               <td class="muted nowrap">{{ m.created_at | datetime }}</td>
               <td>{{ m.product.name }} <span class="sku">{{ m.product.sku }}</span></td>
+              <td class="muted nowrap">{{ ui.place(m) }}</td>
               <td class="num">{{ ui.movement_qty(m) }}</td>
               <td class="num">{{ m.balance_after | number }}</td>
               <td class="muted">{{ m.note }}</td>
+              <td class="num">{{ ui.doc_link(m) }}</td>
             </tr>
           {% endfor %}
         </tbody>

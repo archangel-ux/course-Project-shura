@@ -23,7 +23,7 @@
       </div>
       {{ ui.field('full_name', t('field.full_name'), profile.full_name, attrs='maxlength="120" autocomplete="name"') }}
       <div class="grid-2">
-        {{ ui.field('company', t('field.company'), profile.company, attrs='maxlength="120" autocomplete="organization"') }}
+        {{ ui.field('company', t('field.position'), profile.company, attrs='maxlength="120" autocomplete="organization-title"') }}
         {{ ui.field('phone', t('field.phone'), profile.phone, type='tel', attrs='maxlength="40" autocomplete="tel"') }}
       </div>
       <div class="form-section__save"><button class="btn btn--primary">{{ t('action.save') }}</button></div>
@@ -60,6 +60,68 @@
       </fieldset>
       <div class="form-section__save"><button class="btn btn--primary">{{ t('action.save') }}</button></div>
     </form>
+  </section>
+
+  <section class="form-section" id="notifications">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('account.notifications') }}</h2>
+      <p>{{ t('account.notifications_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      <div class="channel">
+        <span class="channel__icon channel__icon--tg">{{ ui.icon('send', 20) }}</span>
+        <div class="channel__body">
+          <p class="channel__title">Telegram</p>
+          {% if not telegram_enabled %}
+            <p class="muted">{{ t('tg.disabled') }}</p>
+          {% elif profile.telegram_chat_id %}
+            <p class="channel__status is-on">{{ t('tg.connected') }}</p>
+          {% elif telegram_link %}
+            <p class="muted">{{ t('tg.step') }}</p>
+          {% else %}
+            <p class="muted">{{ t('tg.not_connected') }}</p>
+          {% endif %}
+        </div>
+        {% if telegram_enabled %}
+          {% if profile.telegram_chat_id %}
+            <form method="post" action="{{ url_for('notifications.telegram_unlink') }}">
+              {{ ui.csrf() }}<button class="btn btn--ghost btn--sm">{{ t('tg.disconnect') }}</button>
+            </form>
+          {% elif not telegram_link %}
+            <form method="post" action="{{ url_for('notifications.telegram_start') }}">
+              {{ ui.csrf() }}<button class="btn btn--primary btn--sm">{{ t('tg.connect') }}</button>
+            </form>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% if telegram_link and not profile.telegram_chat_id %}
+        <div class="tglink" data-telegram-check="{{ url_for('notifications.telegram_check') }}">
+          <a class="btn btn--primary" href="{{ telegram_link.url }}" target="_blank" rel="noopener">{{ ui.icon('send', 16) }}{{ t('tg.open_bot', bot=telegram_link.bot) }}</a>
+          <span class="tglink__wait"><i class="spinner"></i>{{ t('tg.waiting') }}</span>
+          <form method="post" action="{{ url_for('notifications.telegram_check') }}">
+            {{ ui.csrf() }}<button class="btn btn--text btn--sm">{{ t('tg.check') }}</button>
+          </form>
+        </div>
+      {% endif %}
+
+      <form class="stack" method="post" action="{{ url_for('notifications.settings') }}">
+        {{ ui.csrf() }}
+        <label class="switch">
+          <input type="checkbox" name="notify_telegram" value="1" {% if profile.notify_telegram != false %}checked{% endif %} {% if not profile.telegram_chat_id %}disabled{% endif %}>
+          <span class="switch__track"><i></i></span>
+          <span><b>{{ t('notify.daily_telegram') }}</b><span class="field__hint">{{ t('notify.daily_hint') }}</span></span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" name="notify_email" value="1" {% if profile.notify_email %}checked{% endif %} {% if not email_enabled %}disabled{% endif %}>
+          <span class="switch__track"><i></i></span>
+          <span><b>{{ t('notify.daily_email', email=email) }}</b>{% if not email_enabled %}<span class="field__hint">{{ t('notify.email_off') }}</span>{% endif %}</span>
+        </label>
+        <div class="form-section__save form-section__save--split">
+          <button class="btn btn--text btn--sm" formaction="{{ url_for('notifications.test') }}">{{ ui.icon('bell', 14) }}{{ t('notify.test') }}</button>
+          <button class="btn btn--primary">{{ t('action.save') }}</button>
+        </div>
+      </form>
+    </div>
   </section>
 
   <section class="form-section" id="email">

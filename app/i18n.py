@@ -24,16 +24,22 @@ def resolve_preferences():
     g.theme = theme
 
 
-def t(key, **params):
-    language = getattr(g, "lang", "kk")
+def translate(language, key, **params):
+    """Translate into an explicit language (background jobs have no request)."""
+    if language not in TRANSLATIONS:
+        language = "kk"
     text = TRANSLATIONS[language].get(key) or TRANSLATIONS["en"].get(key) or key
     if params:
         translated = {
-            name: t(value) if isinstance(value, str) and value.startswith("field.") else value
+            name: translate(language, value) if isinstance(value, str) and value.startswith("field.") else value
             for name, value in params.items()
         }
         text = text.format(**translated)
     return text
+
+
+def t(key, **params):
+    return translate(getattr(g, "lang", "kk"), key, **params)
 
 
 def error_text(error):

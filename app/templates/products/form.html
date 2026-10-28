@@ -42,7 +42,15 @@
         {{ ui.field('sale_price', t('field.sale_price') ~ ', ₸', form.sale_price, placeholder='0,00', attrs='inputmode="decimal"') }}
       </div>
       {% if is_new %}
-        {{ ui.field('quantity', t('field.initial_quantity'), form.quantity, type='number', hint=t('products.initial_hint'), attrs='min="0" step="1" inputmode="numeric"') }}
+        <div class="grid-2">
+          {{ ui.field('quantity', t('field.initial_quantity'), form.quantity, type='number', hint=t('products.initial_hint'), attrs='min="0" step="1" inputmode="numeric"') }}
+          {% if warehouses | length > 1 %}
+            <label class="field">
+              <span class="field__label">{{ t('field.warehouse') }}</span>
+              {{ ui.select('warehouse_id', warehouses | options, form.warehouse_id or warehouses[0].id) }}
+            </label>
+          {% endif %}
+        </div>
       {% else %}
         <p class="note">{{ t('products.quantity_note', quantity=product.quantity | number, unit=product.unit) }}</p>
       {% endif %}

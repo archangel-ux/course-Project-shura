@@ -7,7 +7,7 @@ from app.i18n import error_text, t
 from app.services.validators import ValidationError, optional_text, parse_email, parse_password
 from app.store import StoreError
 from app.supabase_client import SupabaseError
-from app.web.session import current_auth, end_session, get_store, safe_next, start_session, supabase
+from app.web.session import current_auth, end_session, get_store, load_organization, safe_next, start_session, supabase
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("auth", __name__)
@@ -59,7 +59,11 @@ def load_profile():
         "phone": profile.get("phone") or "",
         "language": profile.get("language") or g.lang,
         "theme": profile.get("theme") or g.theme,
+        "telegram_chat_id": profile.get("telegram_chat_id"),
+        "notify_telegram": profile.get("notify_telegram", True),
+        "notify_email": profile.get("notify_email", False),
     }
+    load_organization()
 
 
 def _auth_call(action):
@@ -100,9 +104,10 @@ def register():
 
         def sign_up():
             full_name = optional_text(form.get("full_name"), "field.full_name", max_length=120)
+            company = optional_text(form.get("company"), "field.company", max_length=120)
             email = parse_email(form.get("email"))
             password = parse_password(form.get("password"), form.get("password_confirm"))
-            metadata = {"full_name": full_name, "language": g.lang}
+            metadata = {"full_name": full_name, "company": company, "language": g.lang}
             payload = supabase().sign_up(email, password, metadata, callback_url())
             if payload.get("access_token"):
                 return payload
@@ -114,7 +119,7 @@ def register():
             start_session(payload)
             load_profile()
             flash(t("msg.welcome"), "success")
-            return redirect(url_for("main.dashboard"))
+            return redirect(safe_next(request.args.get("next")))
     return render_template("auth/register.html", form=form, error=error)
 
 

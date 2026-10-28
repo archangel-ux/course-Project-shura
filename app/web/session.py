@@ -72,6 +72,62 @@ def login_required(view):
     return wrapped
 
 
+# ---------------------------------------------------------------- organization & role
+
+ORG_REFRESH_SECONDS = 300
+
+# What each role may do. Row level security in Postgres enforces the same rules;
+# these only decide which pages and buttons are shown.
+PERMISSIONS = {
+    "manage": {"owner"},                       # product cards, suppliers, warehouses, team, requisites
+    "operate": {"owner", "storekeeper"},       # receipts, issues, transfers, stocktakes
+    "reports": {"owner", "accountant"},        # reports and exports
+}
+
+
+def load_organization():
+    """Copy the current organization and the user's role into the session."""
+    try:
+        organizations = get_store().my_organizations()
+    except Exception as error:  # noqa: BLE001 — a failed refresh keeps the previous values
+        logger.warning("Could not load organizations: %s", error)
+        return session.get("org")
+    current = next((o for o in organizations if o.get("is_current")), organizations[0] if organizations else None)
+    session["orgs"] = [{"id": o["id"], "name": o["name"], "role": o["role"]} for o in organizations]
+    session["org"] = {"id": current["id"], "name": current["name"], "role": current["role"]} if current else None
+    session["org_checked"] = int(time.time())
+    return session["org"]
+
+
+def current_org():
+    if not session.get("auth"):
+        return None
+    if "org" not in session or time.time() - session.get("org_checked", 0) > ORG_REFRESH_SECONDS:
+        if current_auth() is None:
+            return None
+        return load_organization()
+    return session.get("org")
+
+
+def can(permission):
+    org = current_org()
+    return bool(org) and org["role"] in PERMISSIONS[permission]
+
+
+def permission_required(permission):
+    """login_required plus a role check; members without the right see a 403 page."""
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            if current_auth() is None:
+                return redirect(url_for("auth.login", next=request.full_path.rstrip("?")))
+            if not can(permission):
+                abort(403)
+            return view(*args, **kwargs)
+        return wrapped
+    return decorator
+
+
 def safe_next(target, fallback="main.dashboard"):
     """Only allow same-site relative redirects."""
     if target and target.startswith("/") and not target.startswith("//") and "\\" not in target:
@@ -87,6 +143,8 @@ def csrf_token():
 
 def check_csrf():
     if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return
+    if request.path.startswith("/cron/"):  # authenticated by the cron secret instead
         return
     sent = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token") or ""
     expected = session.get("csrf") or ""

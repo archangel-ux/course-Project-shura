@@ -1,7 +1,8 @@
 import httpx
-from flask import Blueprint, flash, make_response, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, make_response, redirect, render_template, request, session, url_for
 
 from app.i18n import LANGUAGES, THEMES, error_text, t
+from app.services import notify
 from app.services.validators import ValidationError, optional_text, parse_email, parse_password
 from app.store import StoreError
 from app.supabase_client import SupabaseError
@@ -17,6 +18,9 @@ def _render(errors=None, status=200):
     return render_template(
         "account.html", profile=session.get("profile") or {}, email=current_auth()["email"],
         languages=LANGUAGES, themes=THEMES, errors=errors or {},
+        telegram_enabled=bool(current_app.config.get("TELEGRAM_BOT_TOKEN")),
+        email_enabled=notify.email_enabled(current_app.config),
+        telegram_link=session.get("telegram_link"),
     ), status
 
 
