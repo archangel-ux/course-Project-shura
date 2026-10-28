@@ -1,0 +1,10 @@
+{% extends "auth/_layout.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('auth.check_title') }}{% endblock %}
+{% block card %}
+<div class="mailmark">{{ ui.icon('mail', 22) }}</div>
+<h2 class="card-title">{{ t('auth.check_title') }}</h2>
+<p class="card-sub">{{ t('auth.check_' ~ reason, email=email) }}</p>
+<p class="field__hint">{{ t('auth.check_spam') }}</p>
+<p class="card-foot"><a class="link" href="{{ url_for('auth.login') }}">← {{ t('auth.back_to_login') }}</a></p>
+{% endblock %}

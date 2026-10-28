@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block body_class %}auth{% endblock %}
+{% block shell %}
+<div class="auth__top">
+  <a class="brand" href="{{ url_for('auth.login') }}"><span class="brand__mark" aria-hidden="true"></span><span class="brand__word">qoima</span></a>
+  <div class="tools">
+    <form class="langs" method="post" action="{{ url_for('main.preferences') }}">
+      {{ ui.csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+      {% for code in languages %}
+        <button class="langs__item {% if code == lang %}is-current{% endif %}" name="language" value="{{ code }}">{{ code | upper }}</button>
+      {% endfor %}
+    </form>
+    <form method="post" action="{{ url_for('main.preferences') }}">
+      {{ ui.csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+      <button class="tool" name="theme" value="{{ 'light' if theme == 'dark' else 'dark' }}" aria-label="{{ t('pref.theme_toggle') }}">
+        {{ ui.icon('sun' if theme == 'dark' else 'moon', 17) }}
+      </button>
+    </form>
+  </div>
+</div>
+
+<main class="auth__grid">
+  <section class="auth__story">
+    <p class="eyebrow">{{ t('auth.eyebrow') }}</p>
+    <h1 class="display">{{ t('auth.headline') }}</h1>
+    <p class="lede">{{ t('auth.lede') }}</p>
+    <ul class="auth__points">
+      <li><span class="auth__num">01</span>{{ t('auth.point1') }}</li>
+      <li><span class="auth__num">02</span>{{ t('auth.point2') }}</li>
+      <li><span class="auth__num">03</span>{{ t('auth.point3') }}</li>
+    </ul>
+  </section>
+  <section class="auth__card">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for kind, message in messages %}{{ ui.alert(message, kind) }}{% endfor %}
+    {% endwith %}
+    {% block card %}{% endblock %}
+  </section>
+</main>
+{% endblock %}

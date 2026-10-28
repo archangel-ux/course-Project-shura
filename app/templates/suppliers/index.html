@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('nav.suppliers') }}{% endblock %}
+{% block content %}
+
+{% call ui.head('05 — ' ~ t('nav.suppliers'), t('suppliers.title'), t('suppliers.lede')) %}
+  <a class="btn btn--primary" href="{{ url_for('suppliers.create') }}">{{ ui.icon('plus', 16) }}{{ t('action.new_supplier') }}</a>
+{% endcall %}
+
+<section class="panel panel--flush">
+  {% if suppliers %}
+    <div class="table-wrap">
+      <table class="table table--hover">
+        <thead>
+          <tr>
+            <th>{{ t('field.supplier_name') }}</th><th>{{ t('field.contact_person') }}</th><th>{{ t('field.phone') }}</th>
+            <th>{{ t('field.email') }}</th><th class="num">{{ t('suppliers.deliveries') }}</th>
+            <th class="num">{{ t('suppliers.units') }}</th><th>{{ t('suppliers.last') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in suppliers %}
+            {% set st = stats[s.id] if s.id in stats else {'deliveries': 0, 'units': 0, 'last': None} %}
+            <tr data-href="{{ url_for('suppliers.edit', supplier_id=s.id) }}">
+              <td><a class="row-link" href="{{ url_for('suppliers.edit', supplier_id=s.id) }}">{{ s.name }}</a></td>
+              <td class="muted">{{ s.contact_person or '—' }}</td>
+              <td class="muted nowrap">{% if s.phone %}<a class="link link--quiet" href="tel:{{ s.phone }}">{{ s.phone }}</a>{% else %}—{% endif %}</td>
+              <td class="muted">{% if s.email %}<a class="link link--quiet" href="mailto:{{ s.email }}">{{ s.email }}</a>{% else %}—{% endif %}</td>
+              <td class="num">{{ st.deliveries | number }}</td>
+              <td class="num">{{ st.units | number }}</td>
+              <td class="muted nowrap">{{ st.last | date if st.last else '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {{ ui.empty(t('suppliers.empty'), t('suppliers.empty_text'), url_for('suppliers.create'), t('action.new_supplier')) }}
+  {% endif %}
+</section>
+{% endblock %}

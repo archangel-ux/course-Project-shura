@@ -1,0 +1,22 @@
+# Render blueprint: New → Blueprint → connect the repository.
+services:
+  - type: web
+    name: qoima
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:$PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SUPABASE_URL
+        value: https://vnbpscrkqabvubtpbkwm.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_Bi56kgNHroTw8YkahDU4Lw_iohatDsO
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SITE_URL
+        sync: false
+      - key: APP_TIMEZONE
+        value: Asia/Almaty

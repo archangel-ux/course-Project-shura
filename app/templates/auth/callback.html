@@ -1,0 +1,9 @@
+{% extends "auth/_layout.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('auth.callback_title') }}{% endblock %}
+{% block card %}
+<h2 class="card-title">{{ t('auth.callback_title') }}</h2>
+<p class="card-sub" id="callback-status" data-session-url="{{ url_for('auth.accept_session') }}"
+   data-error-text="{{ t('err.link_invalid') }}">{{ t('auth.callback_wait') }}</p>
+<p class="card-foot"><a class="link" href="{{ url_for('auth.login') }}">← {{ t('auth.back_to_login') }}</a></p>
+{% endblock %}

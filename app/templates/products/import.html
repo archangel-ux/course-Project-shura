@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('import.title') }}{% endblock %}
+{% block content %}
+
+<a class="crumb" href="{{ url_for('products.index') }}">{{ ui.icon('back', 16) }}{{ t('nav.products') }}</a>
+{% call ui.head('02 — ' ~ t('nav.products'), t('import.title'), t('import.lede')) %}
+  <a class="btn btn--ghost" href="{{ url_for('products.import_template') }}">{{ ui.icon('download', 16) }}{{ t('import.template') }}</a>
+{% endcall %}
+
+{{ ui.alert(error) }}
+{% if result %}
+  <section class="result">
+    <div class="metric">
+      <span class="metric__label">{{ t('import.created') }}</span>
+      <span class="metric__value">{{ result.created | number }}</span>
+    </div>
+    <div class="metric">
+      <span class="metric__label">{{ t('import.skipped') }}</span>
+      <span class="metric__value {% if result.failures %}is-signal{% endif %}">{{ result.failures | length }}</span>
+    </div>
+    {% if result.failures %}
+      <ul class="issues">
+        {% for line, message in result.failures %}
+          <li><span class="issues__line">{{ t('import.line', line=line) }}</span>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <a class="btn btn--primary" href="{{ url_for('products.index') }}">{{ t('import.to_products') }}</a>
+  </section>
+{% endif %}
+
+<form class="form-layout" method="post" enctype="multipart/form-data">
+  {{ ui.csrf() }}
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('import.file_title') }}</h2>
+      <p>{{ t('import.file_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      <label class="dropzone" data-dropzone>
+        <input type="file" name="file" accept=".csv,text/csv" data-file-input>
+        {{ ui.icon('file', 22) }}
+        <span class="dropzone__title" data-file-name>{{ t('import.choose_file') }}</span>
+        <span class="dropzone__hint">{{ t('import.file_hint') }}</span>
+      </label>
+      <details class="disclosure">
+        <summary>{{ t('import.paste') }}</summary>
+        <textarea class="input input--area input--mono" name="text" rows="6" placeholder="{{ t('field.name') }};{{ t('field.sku') }};{{ t('field.category') }};..."></textarea>
+      </details>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('import.columns_title') }}</h2>
+      <p>{{ t('import.columns_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      <dl class="columns-ref">
+        <div><dt>{{ t('field.name') }} *</dt><dd>name · атауы · название</dd></div>
+        <div><dt>{{ t('field.sku') }} *</dt><dd>sku · артикул</dd></div>
+        <div><dt>{{ t('field.category') }}</dt><dd>category · санаты · категория</dd></div>
+        <div><dt>{{ t('field.unit') }}</dt><dd>unit · өлшем бірлігі · единица</dd></div>
+        <div><dt>{{ t('field.quantity_left') }}</dt><dd>quantity · қалдық · количество</dd></div>
+        <div><dt>{{ t('field.min_quantity') }}</dt><dd>min_quantity · ең аз қалдық · минимум</dd></div>
+        <div><dt>{{ t('field.purchase_price') }}</dt><dd>purchase_price · сатып алу бағасы · закупочная цена</dd></div>
+        <div><dt>{{ t('field.sale_price') }}</dt><dd>sale_price · сату бағасы · цена продажи</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <a class="btn btn--text" href="{{ url_for('products.index') }}">{{ t('action.cancel') }}</a>
+    <button class="btn btn--primary">{{ ui.icon('upload', 16) }}{{ t('import.run') }}</button>
+  </div>
+</form>
+{% endblock %}

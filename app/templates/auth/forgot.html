@@ -1,0 +1,14 @@
+{% extends "auth/_layout.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('auth.forgot_title') }}{% endblock %}
+{% block card %}
+<h2 class="card-title">{{ t('auth.forgot_title') }}</h2>
+<p class="card-sub">{{ t('auth.forgot_sub') }}</p>
+{{ ui.alert(error) }}
+<form class="stack" method="post">
+  {{ ui.csrf() }}
+  {{ ui.field('email', t('field.email'), email, type='email', required=True, attrs='autocomplete="email" autofocus') }}
+  <button class="btn btn--primary btn--block">{{ t('auth.forgot_button') }}</button>
+</form>
+<p class="card-foot"><a class="link" href="{{ url_for('auth.login') }}">← {{ t('auth.back_to_login') }}</a></p>
+{% endblock %}

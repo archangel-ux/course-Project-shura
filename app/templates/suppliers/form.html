@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% set is_new = supplier is none %}
+{% block title %}{{ t('suppliers.new_title') if is_new else supplier.name }}{% endblock %}
+{% block content %}
+
+<a class="crumb" href="{{ url_for('suppliers.index') }}">{{ ui.icon('back', 16) }}{{ t('nav.suppliers') }}</a>
+{{ ui.head('05 — ' ~ t('nav.suppliers'), t('suppliers.new_title') if is_new else supplier.name, t('suppliers.form_lede')) }}
+
+<form class="form-layout" method="post">
+  {{ ui.csrf() }}
+  {{ ui.alert(error) }}
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('suppliers.section_main') }}</h2>
+      <p>{{ t('suppliers.section_main_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      {{ ui.field('name', t('field.supplier_name'), form.name, required=True, attrs='maxlength="150" autofocus') }}
+      {{ ui.field('contact_person', t('field.contact_person'), form.contact_person, attrs='maxlength="120"') }}
+      <div class="grid-2">
+        {{ ui.field('phone', t('field.phone'), form.phone, type='tel', placeholder='+7 700 000 00 00', attrs='maxlength="40"') }}
+        {{ ui.field('email', t('field.email'), form.email, type='email', attrs='maxlength="120"') }}
+      </div>
+      <label class="field">
+        <span class="field__label">{{ t('field.note') }}</span>
+        <textarea class="input input--area" name="note" rows="3" maxlength="500">{{ form.note or '' }}</textarea>
+      </label>
+    </div>
+  </section>
+  <div class="form-actions">
+    <a class="btn btn--text" href="{{ url_for('suppliers.index') }}">{{ t('action.cancel') }}</a>
+    <button class="btn btn--primary">{{ t('action.save') }}</button>
+  </div>
+</form>
+
+{% if not is_new %}
+<section class="danger">
+  <div>
+    <h2 class="form-section__title">{{ t('suppliers.delete_title') }}</h2>
+    <p class="muted">{{ t('suppliers.delete_text') }}</p>
+  </div>
+  <form method="post" action="{{ url_for('suppliers.delete', supplier_id=supplier.id) }}" data-confirm="{{ t('suppliers.delete_confirm') }}">
+    {{ ui.csrf() }}
+    <button class="btn btn--danger">{{ ui.icon('trash', 16) }}{{ t('action.delete') }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

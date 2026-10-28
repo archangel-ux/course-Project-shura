@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('nav.account') }}{% endblock %}
+{% block content %}
+
+{{ ui.head(t('account.eyebrow'), t('account.title'), t('account.lede')) }}
+
+<div class="settings">
+  <section class="form-section" id="profile">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('account.profile') }}</h2>
+      <p>{{ t('account.profile_text') }}</p>
+    </div>
+    <form class="form-section__fields" method="post" action="{{ url_for('account.profile') }}">
+      {{ ui.csrf() }}
+      {{ ui.alert(errors.profile) }}
+      <div class="identity">
+        <span class="avatar avatar--lg">{{ user.initials }}</span>
+        <div>
+          <p class="identity__name">{{ profile.full_name or user.email }}</p>
+          <p class="muted">{{ user.email }}</p>
+        </div>
+      </div>
+      {{ ui.field('full_name', t('field.full_name'), profile.full_name, attrs='maxlength="120" autocomplete="name"') }}
+      <div class="grid-2">
+        {{ ui.field('company', t('field.company'), profile.company, attrs='maxlength="120" autocomplete="organization"') }}
+        {{ ui.field('phone', t('field.phone'), profile.phone, type='tel', attrs='maxlength="40" autocomplete="tel"') }}
+      </div>
+      <div class="form-section__save"><button class="btn btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+  </section>
+
+  <section class="form-section" id="preferences">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('account.preferences') }}</h2>
+      <p>{{ t('account.preferences_text') }}</p>
+    </div>
+    <form class="form-section__fields" method="post" action="{{ url_for('account.preferences') }}">
+      {{ ui.csrf() }}
+      {{ ui.alert(errors.preferences) }}
+      <fieldset class="choice">
+        <legend class="field__label">{{ t('pref.language') }}</legend>
+        <div class="choice__row">
+          {% for code, name in languages.items() %}
+            <label class="pill-option"><input type="radio" name="language" value="{{ code }}" {% if code == lang %}checked{% endif %}><span>{{ name }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <fieldset class="choice">
+        <legend class="field__label">{{ t('pref.theme') }}</legend>
+        <div class="theme-cards">
+          {% for value in themes %}
+            <label class="theme-card">
+              <input type="radio" name="theme" value="{{ value }}" {% if value == theme %}checked{% endif %}>
+              <span class="theme-card__preview theme-card__preview--{{ value }}"><i></i><i></i><i></i></span>
+              <span class="theme-card__name">{{ t('pref.theme_' ~ value) }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="form-section__save"><button class="btn btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+  </section>
+
+  <section class="form-section" id="email">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('account.email') }}</h2>
+      <p>{{ t('account.email_text') }}</p>
+    </div>
+    <form class="form-section__fields" method="post" action="{{ url_for('account.email') }}">
+      {{ ui.csrf() }}
+      {{ ui.alert(errors.email) }}
+      <p class="note">{{ t('account.current_email') }} <b class="strong">{{ email }}</b></p>
+      {{ ui.field('email', t('field.new_email'), type='email', required=True, attrs='autocomplete="email"') }}
+      <div class="form-section__save"><button class="btn btn--ghost">{{ t('account.email_button') }}</button></div>
+    </form>
+  </section>
+
+  <section class="form-section" id="password">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('account.password') }}</h2>
+      <p>{{ t('account.password_text') }}</p>
+    </div>
+    <form class="form-section__fields" method="post" action="{{ url_for('account.password') }}">
+      {{ ui.csrf() }}
+      {{ ui.alert(errors.password) }}
+      <div class="grid-2">
+        {{ ui.field('password', t('field.new_password'), type='password', required=True, attrs='autocomplete="new-password" minlength="8"') }}
+        {{ ui.field('password_confirm', t('field.password_confirm'), type='password', required=True, attrs='autocomplete="new-password" minlength="8"') }}
+      </div>
+      <div class="form-section__save"><button class="btn btn--ghost">{{ t('account.password_button') }}</button></div>
+    </form>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('account.session') }}</h2>
+      <p>{{ t('account.session_text') }}</p>
+    </div>
+    <form class="form-section__fields" method="post" action="{{ url_for('auth.logout') }}">
+      {{ ui.csrf() }}
+      <div><button class="btn btn--ghost">{{ ui.icon('logout', 16) }}{{ t('nav.logout') }}</button></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

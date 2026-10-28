@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('nav.stocktake') }}{% endblock %}
+{% block content %}
+
+{{ ui.head('04 — ' ~ t('nav.stocktake'), t('stocktake.title'), t('stocktake.lede')) }}
+
+<form class="toolbar" method="get" data-autosubmit>
+  <div class="select">
+    <select name="category" aria-label="{{ t('field.category') }}">
+      <option value="">{{ t('products.all_categories') }}</option>
+      {% for c in categories %}<option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>{{ ui.icon('chevron', 14) }}
+  </div>
+  <p class="toolbar__note">{{ t('stocktake.how') }}</p>
+</form>
+
+{{ ui.alert(error) }}
+
+{% if products %}
+<form method="post" data-stocktake>
+  {{ ui.csrf() }}
+  <section class="panel panel--flush">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>{{ t('field.sku') }}</th><th>{{ t('field.name') }}</th>
+            <th class="num">{{ t('stocktake.system') }}</th>
+            <th class="num col-input">{{ t('stocktake.counted') }}</th>
+            <th class="num">{{ t('stocktake.difference') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+            <tr data-system="{{ p.quantity }}">
+              <td><span class="sku">{{ p.sku }}</span></td>
+              <td>{{ p.name }} <span class="muted">· {{ p.category or '—' }}</span></td>
+              <td class="num">{{ p.quantity | number }} <span class="unit">{{ p.unit }}</span></td>
+              <td class="num col-input">
+                <input class="input input--cell" type="number" name="counted_{{ p.id }}" min="0" step="1" inputmode="numeric"
+                       value="{{ form['counted_' ~ p.id] or '' }}" placeholder="—" aria-label="{{ t('stocktake.counted') }}: {{ p.name }}">
+              </td>
+              <td class="num" data-diff>—</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="actionbar">
+    <span class="actionbar__info" data-stocktake-summary data-template="{{ t('stocktake.summary') }}">{{ t('stocktake.none_counted') }}</span>
+    <input class="input input--inline" name="note" maxlength="200" placeholder="{{ t('stocktake.note_placeholder') }}" value="{{ form.note or '' }}">
+    <button class="btn btn--primary" data-confirm-submit="{{ t('stocktake.confirm') }}">{{ ui.icon('check', 16) }}{{ t('stocktake.apply') }}</button>
+  </div>
+</form>
+{% else %}
+  <section class="panel">{{ ui.empty(t('stocktake.empty'), t('stocktake.empty_text'), url_for('products.create'), t('action.new_product')) }}</section>
+{% endif %}
+
+<section class="section">
+  <p class="eyebrow">{{ t('stocktake.history_eyebrow') }}</p>
+  <h2 class="section-title">{{ t('stocktake.history') }}</h2>
+  <div class="panel panel--flush">
+    {% if history %}
+      <table class="table">
+        <thead><tr><th>{{ t('field.date') }}</th><th>{{ t('field.product') }}</th><th class="num">{{ t('stocktake.difference') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th></tr></thead>
+        <tbody>
+          {% for m in history %}
+            <tr>
+              <td class="muted nowrap">{{ m.created_at | datetime }}</td>
+              <td>{{ m.product.name }} <span class="sku">{{ m.product.sku }}</span></td>
+              <td class="num">{{ ui.movement_qty(m) }}</td>
+              <td class="num">{{ m.balance_after | number }}</td>
+              <td class="muted">{{ m.note }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      {{ ui.empty(t('stocktake.history_empty'), t('stocktake.history_empty_text')) }}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

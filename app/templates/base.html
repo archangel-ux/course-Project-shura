@@ -1,0 +1,98 @@
+{% import "_ui.html" as ui %}
+<!doctype html>
+<html lang="{{ lang }}" data-theme="{{ theme }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ t('app.name') }}{% endblock %} · Qoima</title>
+  <meta name="color-scheme" content="{{ theme }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap&subset=cyrillic,cyrillic-ext" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</head>
+<body class="{% block body_class %}{% endblock %}" data-csrf="{{ csrf_token() }}"
+      data-text-ok="{{ t('action.confirm') }}" data-text-cancel="{{ t('action.cancel') }}"
+      data-text-show="{{ t('action.show_password') }}" data-text-hide="{{ t('action.hide_password') }}"
+      data-text-no-results="{{ t('products.not_found') }}">
+{% block shell %}
+<header class="topbar">
+  <div class="topbar__inner">
+    <a class="brand" href="{{ url_for('main.dashboard') }}" aria-label="Qoima">
+      <span class="brand__mark" aria-hidden="true"></span><span class="brand__word">qoima</span>
+    </a>
+
+    {% set nav = [
+      ('main.dashboard', 'nav.overview', 'main.'),
+      ('products.index', 'nav.products', 'products.'),
+      ('movements.index', 'nav.movements', 'movements.'),
+      ('stocktake.index', 'nav.stocktake', 'stocktake.'),
+      ('suppliers.index', 'nav.suppliers', 'suppliers.'),
+      ('reports.index', 'nav.reports', 'reports.'),
+    ] %}
+    <nav class="nav" aria-label="{{ t('nav.label') }}">
+      {% for endpoint, label, prefix in nav %}
+        <a class="nav__link {% if request.endpoint and request.endpoint.startswith(prefix) and request.endpoint != 'main.preferences' %}is-active{% endif %}"
+           href="{{ url_for(endpoint) }}">{{ t(label) }}</a>
+      {% endfor %}
+    </nav>
+
+    <div class="tools">
+      <details class="menu">
+        <summary class="tool" aria-label="{{ t('pref.language') }}">{{ ui.icon('globe', 17) }}<span class="tool__code">{{ lang | upper }}</span></summary>
+        <form class="menu__panel" method="post" action="{{ url_for('main.preferences') }}">
+          {{ ui.csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+          {% for code, name in languages.items() %}
+            <button class="menu__item {% if code == lang %}is-current{% endif %}" name="language" value="{{ code }}">
+              <span>{{ name }}</span><span class="menu__code">{{ code | upper }}</span>
+            </button>
+          {% endfor %}
+        </form>
+      </details>
+
+      <form method="post" action="{{ url_for('main.preferences') }}">
+        {{ ui.csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+        <button class="tool" name="theme" value="{{ 'light' if theme == 'dark' else 'dark' }}"
+                aria-label="{{ t('pref.theme_toggle') }}" title="{{ t('pref.theme_toggle') }}">
+          {{ ui.icon('sun' if theme == 'dark' else 'moon', 17) }}
+        </button>
+      </form>
+
+      <details class="menu menu--right">
+        <summary class="avatar" aria-label="{{ t('nav.account') }}">{{ user.initials }}</summary>
+        <div class="menu__panel menu__panel--wide">
+          <div class="menu__who">
+            <span class="menu__name">{{ user.name }}</span>
+            <span class="menu__mail">{{ user.email }}</span>
+          </div>
+          <a class="menu__item" href="{{ url_for('account.index') }}">{{ ui.icon('user', 16) }}<span>{{ t('nav.account') }}</span></a>
+          <form method="post" action="{{ url_for('auth.logout') }}">
+            {{ ui.csrf() }}
+            <button class="menu__item">{{ ui.icon('logout', 16) }}<span>{{ t('nav.logout') }}</span></button>
+          </form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for kind, message in messages %}
+      <div class="toast toast--{{ kind }}" role="status" data-toast>{{ message }}
+        <button class="toast__close" type="button" data-dismiss aria-label="{{ t('action.close') }}">{{ ui.icon('close', 14) }}</button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <span>Qoima · {{ t('app.tagline') }}</span>
+  <span>{{ user.company or '' }}</span>
+</footer>
+{% endblock %}
+</body>
+</html>

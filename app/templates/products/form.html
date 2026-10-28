@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% set is_new = product is none %}
+{% block title %}{{ t('products.new_title') if is_new else product.name }}{% endblock %}
+{% block content %}
+
+<a class="crumb" href="{{ url_for('products.index') if is_new else url_for('products.detail', product_id=product.id) }}">{{ ui.icon('back', 16) }}{{ t('nav.products') if is_new else product.name }}</a>
+{{ ui.head('02 — ' ~ t('nav.products'), t('products.new_title') if is_new else t('products.edit_title'), t('products.form_lede')) }}
+
+<form class="form-layout" method="post">
+  {{ ui.csrf() }}
+  {{ ui.alert(error) }}
+
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('products.section_main') }}</h2>
+      <p>{{ t('products.section_main_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      {{ ui.field('name', t('field.name'), form.name, required=True, placeholder=t('products.name_placeholder'), attrs='maxlength="150" autofocus') }}
+      <div class="grid-2">
+        {{ ui.field('sku', t('field.sku'), form.sku, required=True, placeholder='PEN-001', attrs='maxlength="50"', cls='input--mono') }}
+        {{ ui.field('category', t('field.category'), form.category, list='category-list', attrs='maxlength="80"') }}
+      </div>
+      <datalist id="category-list">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+      <div class="grid-2">
+        {{ ui.field('unit', t('field.unit'), form.unit, required=True, list='unit-list', attrs='maxlength="20"') }}
+        {{ ui.field('min_quantity', t('field.min_quantity'), form.min_quantity, type='number', hint=t('products.min_hint'), attrs='min="0" step="1" inputmode="numeric"') }}
+      </div>
+      <datalist id="unit-list">{% for u in units %}<option value="{{ u }}">{% endfor %}</datalist>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('products.section_price') }}</h2>
+      <p>{{ t('products.section_price_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      <div class="grid-2">
+        {{ ui.field('purchase_price', t('field.purchase_price') ~ ', ₸', form.purchase_price, placeholder='0,00', attrs='inputmode="decimal"') }}
+        {{ ui.field('sale_price', t('field.sale_price') ~ ', ₸', form.sale_price, placeholder='0,00', attrs='inputmode="decimal"') }}
+      </div>
+      {% if is_new %}
+        {{ ui.field('quantity', t('field.initial_quantity'), form.quantity, type='number', hint=t('products.initial_hint'), attrs='min="0" step="1" inputmode="numeric"') }}
+      {% else %}
+        <p class="note">{{ t('products.quantity_note', quantity=product.quantity | number, unit=product.unit) }}</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section__intro">
+      <h2 class="form-section__title">{{ t('field.description') }}</h2>
+      <p>{{ t('products.section_desc_text') }}</p>
+    </div>
+    <div class="form-section__fields">
+      <label class="field">
+        <span class="field__label">{{ t('field.description') }}</span>
+        <textarea class="input input--area" name="description" rows="4" maxlength="1000">{{ form.description or '' }}</textarea>
+      </label>
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <a class="btn btn--text" href="{{ url_for('products.index') if is_new else url_for('products.detail', product_id=product.id) }}">{{ t('action.cancel') }}</a>
+    <button class="btn btn--primary">{{ t('action.save') }}</button>
+  </div>
+</form>
+{% endblock %}

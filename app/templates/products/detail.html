@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+
+<a class="crumb" href="{{ url_for('products.index') }}">{{ ui.icon('back', 16) }}{{ t('nav.products') }}</a>
+{% call ui.head(product.sku, product.name, (product.category or t('products.no_category')) ~ ' · ' ~ product.unit) %}
+  <a class="btn btn--ghost" href="{{ url_for('products.edit', product_id=product.id) }}">{{ ui.icon('edit', 16) }}{{ t('action.edit') }}</a>
+  <form method="post" action="{{ url_for('products.toggle', product_id=product.id) }}"
+        {% if product.is_active %}data-confirm="{{ t('products.archive_confirm') }}"{% endif %}>
+    {{ ui.csrf() }}
+    <button class="btn btn--ghost">{{ ui.icon('archive' if product.is_active else 'restore', 16) }}{{ t('action.archive') if product.is_active else t('action.restore') }}</button>
+  </form>
+{% endcall %}
+
+{% if not product.is_active %}{{ ui.alert(t('products.archived_note'), 'info') }}{% endif %}
+
+<section class="metrics metrics--5">
+  <div class="metric">
+    <span class="metric__label">{{ t('field.quantity_left') }}</span>
+    <span class="metric__value {% if low %}is-signal{% endif %}">{{ product.quantity | number }}</span>
+    <span class="metric__meta">{{ product.unit }} · {{ ui.stock_state(product) }}</span>
+  </div>
+  <div class="metric">
+    <span class="metric__label">{{ t('field.min_quantity') }}</span>
+    <span class="metric__value">{{ product.min_quantity | number }}</span>
+    <span class="metric__meta">{{ product.unit }}</span>
+  </div>
+  <div class="metric">
+    <span class="metric__label">{{ t('field.purchase_price') }}</span>
+    <span class="metric__value metric__value--sm">{{ product.purchase_price | money }}</span>
+  </div>
+  <div class="metric">
+    <span class="metric__label">{{ t('field.sale_price') }}</span>
+    <span class="metric__value metric__value--sm">{{ product.sale_price | money }}</span>
+  </div>
+  <div class="metric">
+    <span class="metric__label">{{ t('metric.stock_value') }}</span>
+    <span class="metric__value metric__value--sm">{{ (product.quantity * product.purchase_price) | money }}</span>
+  </div>
+</section>
+
+<div class="layout-1-2">
+  <section class="panel">
+    <header class="panel__head"><h2 class="panel__title">{{ t('movements.form_title') }}</h2></header>
+    {% if product.is_active %}
+      <form class="stack" method="post" action="{{ url_for('movements.create') }}" data-movement-form>
+        {{ ui.csrf() }}
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <input type="hidden" name="next" value="{{ url_for('products.detail', product_id=product.id) }}">
+        <div class="segmented">
+          <label><input type="radio" name="movement_type" value="IN" checked><span>{{ t('movement.IN') }}</span></label>
+          <label><input type="radio" name="movement_type" value="OUT"><span>{{ t('movement.OUT') }}</span></label>
+        </div>
+        {{ ui.field('quantity', t('field.quantity') ~ ', ' ~ product.unit, type='number', required=True, attrs='min="1" step="1" inputmode="numeric"') }}
+        {% if suppliers %}
+          <label class="field" data-only-in>
+            <span class="field__label">{{ t('field.supplier') }}</span>
+            <span class="select select--block">
+              <select name="supplier_id">
+                <option value="">{{ t('movements.no_supplier') }}</option>
+                {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+              </select>{{ ui.icon('chevron', 14) }}
+            </span>
+          </label>
+        {% endif %}
+        {{ ui.field('note', t('field.note'), placeholder=t('movements.note_placeholder'), attrs='maxlength="200"') }}
+        <button class="btn btn--primary btn--block">{{ t('action.record') }}</button>
+      </form>
+    {% else %}
+      <p class="muted">{{ t('products.archived_no_moves') }}</p>
+    {% endif %}
+    {% if product.description %}
+      <div class="desc">
+        <h3 class="desc__title">{{ t('field.description') }}</h3>
+        <p>{{ product.description }}</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="panel panel--flush">
+    <header class="panel__head">
+      <h2 class="panel__title">{{ t('products.history') }}</h2>
+      <span class="panel__sub">{{ t('products.history_count', count=movements | length) }}</span>
+    </header>
+    {% if movements %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>{{ t('field.date') }}</th><th>{{ t('field.type') }}</th><th class="num">{{ t('field.quantity') }}</th><th class="num">{{ t('field.balance_after') }}</th><th>{{ t('field.note') }}</th></tr></thead>
+          <tbody>
+            {% for m in movements %}
+              <tr>
+                <td class="muted nowrap">{{ m.created_at | datetime }}</td>
+                <td>{{ ui.movement_tag(m.movement_type) }}</td>
+                <td class="num nowrap">{{ ui.movement_qty(m) }}</td>
+                <td class="num">{{ m.balance_after | number }}</td>
+                <td class="muted">{% if m.supplier %}{{ m.supplier.name }}{% if m.note %} · {% endif %}{% endif %}{{ m.note }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {{ ui.empty(t('products.history_empty'), t('products.history_empty_text')) }}
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

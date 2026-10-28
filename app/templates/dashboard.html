@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('nav.overview') }}{% endblock %}
+{% block content %}
+
+{% call ui.head('01 — ' ~ t('nav.overview'), t('dash.title'), t('dash.lede')) %}
+  <a class="btn btn--ghost" href="{{ url_for('movements.index') }}">{{ t('action.record_movement') }}</a>
+  <a class="btn btn--primary" href="{{ url_for('products.create') }}">{{ ui.icon('plus', 16) }}{{ t('action.new_product') }}</a>
+{% endcall %}
+
+{% if not has_products %}
+<section class="onboard">
+  <p class="eyebrow">{{ t('onboard.eyebrow') }}</p>
+  <h2 class="section-title">{{ t('onboard.title') }}</h2>
+  <ol class="onboard__steps">
+    <li>
+      <span class="onboard__num">01</span>
+      <h3>{{ t('onboard.step1') }}</h3>
+      <p>{{ t('onboard.step1_text') }}</p>
+      <a class="link" href="{{ url_for('products.create') }}">{{ t('action.new_product') }} →</a>
+    </li>
+    <li>
+      <span class="onboard__num">02</span>
+      <h3>{{ t('onboard.step2') }}</h3>
+      <p>{{ t('onboard.step2_text') }}</p>
+      <a class="link" href="{{ url_for('products.import_products') }}">{{ t('action.import') }} →</a>
+    </li>
+    <li>
+      <span class="onboard__num">03</span>
+      <h3>{{ t('onboard.step3') }}</h3>
+      <p>{{ t('onboard.step3_text') }}</p>
+      <a class="link" href="{{ url_for('suppliers.create') }}">{{ t('action.new_supplier') }} →</a>
+    </li>
+  </ol>
+</section>
+{% else %}
+
+<section class="metrics" aria-label="{{ t('dash.metrics') }}">
+  <div class="metric">
+    <span class="metric__label">{{ t('metric.products') }}</span>
+    <span class="metric__value">{{ summary.product_count | number }}</span>
+    <span class="metric__meta">{{ t('metric.units', units=summary.total_units | number) }}</span>
+  </div>
+  <div class="metric">
+    <span class="metric__label">{{ t('metric.low') }}</span>
+    <span class="metric__value {% if summary.low_count %}is-signal{% endif %}">{{ summary.low_count | number }}</span>
+    <span class="metric__meta">{{ t('metric.out_of_stock', count=summary.out_of_stock | number) }}</span>
+  </div>
+  <div class="metric">
+    <span class="metric__label">{{ t('metric.value') }}</span>
+    <span class="metric__value">{{ summary.purchase_value | money_short }}</span>
+    <span class="metric__meta">{{ t('metric.value_sale', value=summary.sale_value | money_short) }}</span>
+  </div>
+  <div class="metric">
+    <span class="metric__label">{{ t('metric.month_flow') }}</span>
+    <span class="metric__value"><span class="metric__in">+{{ month_in | number }}</span> <span class="metric__sep">/</span> −{{ month_out | number }}</span>
+    <span class="metric__meta">{{ t('metric.month_flow_meta') }}</span>
+  </div>
+</section>
+
+<div class="layout-2-1">
+  <section class="panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('dash.flow_title') }}</h2>
+        <p class="panel__sub">{{ t('dash.flow_sub') }}</p>
+      </div>
+      <div class="legend">
+        <span class="legend__item"><i class="legend__swatch legend__swatch--in"></i>{{ t('movement.IN') }}</span>
+        <span class="legend__item"><i class="legend__swatch legend__swatch--out"></i>{{ t('movement.OUT') }}</span>
+      </div>
+    </header>
+    <div class="chart" role="img" aria-label="{{ t('dash.flow_title') }}">
+      <div class="chart__axis"><span>{{ peak | number }}</span><span>0</span></div>
+      <div class="chart__bars">
+        {% for point in series %}
+          <div class="chart__day" title="{{ point.day.strftime('%d.%m') }} · +{{ point.in }} / −{{ point.out }}">
+            <div class="chart__pair">
+              <span class="chart__bar chart__bar--in" style="height: {{ point.in_h }}px"></span>
+              <span class="chart__bar chart__bar--out" style="height: {{ point.out_h }}px"></span>
+            </div>
+            <span class="chart__label">{{ point.day.strftime('%d') }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('dash.low_title') }}</h2>
+        <p class="panel__sub">{{ t('dash.low_sub') }}</p>
+      </div>
+      <a class="link link--quiet" href="{{ url_for('products.index', status='low') }}">{{ t('action.all') }} →</a>
+    </header>
+    {% if low_stock %}
+      <ul class="lowlist">
+        {% for p in low_stock %}
+          {% set ratio = [100, (p.quantity / p.min_quantity * 100) | round | int] | min if p.min_quantity else 0 %}
+          <li>
+            <a class="lowlist__row" href="{{ url_for('products.detail', product_id=p.id) }}">
+              <span class="lowlist__name">{{ p.name }}<span class="sku">{{ p.sku }}</span></span>
+              <span class="lowlist__qty"><b>{{ p.quantity | number }}</b> / {{ p.min_quantity | number }} {{ p.unit }}</span>
+              <span class="meter"><span class="meter__fill" style="width: {{ ratio }}%"></span></span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      {{ ui.empty(t('dash.low_empty'), t('dash.low_empty_text')) }}
+    {% endif %}
+  </section>
+</div>
+
+<div class="layout-2-1">
+  <section class="panel panel--flush">
+    <header class="panel__head">
+      <h2 class="panel__title">{{ t('dash.recent_title') }}</h2>
+      <a class="link link--quiet" href="{{ url_for('movements.index') }}">{{ t('action.history') }} →</a>
+    </header>
+    {% if recent %}
+      <table class="table">
+        <thead><tr><th>{{ t('field.date') }}</th><th>{{ t('field.name') }}</th><th>{{ t('field.type') }}</th><th class="num">{{ t('field.quantity') }}</th></tr></thead>
+        <tbody>
+          {% for m in recent %}
+            <tr>
+              <td class="muted nowrap">{{ m.created_at | datetime }}</td>
+              <td><a class="row-link" href="{{ url_for('products.detail', product_id=m.product_id) }}">{{ m.product.name }}</a></td>
+              <td>{{ ui.movement_tag(m.movement_type) }}</td>
+              <td class="num nowrap">{{ ui.movement_qty(m) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      {{ ui.empty(t('dash.recent_empty'), t('dash.recent_empty_text'), url_for('movements.index'), t('action.record_movement')) }}
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">{{ t('dash.top_title') }}</h2>
+        <p class="panel__sub">{{ t('dash.top_sub') }}</p>
+      </div>
+    </header>
+    {% if top_outflow %}
+      <ol class="rank">
+        {% for row in top_outflow %}
+          <li class="rank__row">
+            <span class="rank__pos">{{ '%02d' % loop.index }}</span>
+            <span class="rank__body">
+              <span class="rank__name">{{ row.name }}</span>
+              <span class="meter meter--quiet"><span class="meter__fill" style="width: {{ row.share }}%"></span></span>
+            </span>
+            <span class="rank__qty">{{ row.quantity | number }} <span class="unit">{{ row.unit }}</span></span>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      {{ ui.empty(t('dash.top_empty'), t('dash.top_empty_text')) }}
+    {% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

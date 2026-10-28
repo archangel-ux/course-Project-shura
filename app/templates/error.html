@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ code }}{% endblock %}
+{% block body_class %}{% if not user %}auth{% endif %}{% endblock %}
+{% block shell %}
+{% if user %}{{ super() }}{% else %}
+<main class="errorpage">
+  <p class="eyebrow">{{ t('error.eyebrow') }} {{ code }}</p>
+  <h1 class="display">{{ message }}</h1>
+  <a class="btn btn--primary" href="{{ url_for('auth.login') }}">{{ t('error.home') }}</a>
+</main>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="errorpage errorpage--inline">
+  <p class="eyebrow">{{ t('error.eyebrow') }} {{ code }}</p>
+  <h1 class="title">{{ message }}</h1>
+  <a class="btn btn--primary" href="{{ url_for('main.dashboard') }}">{{ t('error.home') }}</a>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ t('nav.products') }}{% endblock %}
+{% block content %}
+
+{% call ui.head('02 — ' ~ t('nav.products'), t('products.title'), t('products.lede')) %}
+  <a class="btn btn--ghost" href="{{ url_for('products.import_products') }}">{{ ui.icon('upload', 16) }}{{ t('action.import') }}</a>
+  <a class="btn btn--primary" href="{{ url_for('products.create') }}">{{ ui.icon('plus', 16) }}{{ t('action.new_product') }}</a>
+{% endcall %}
+
+<form class="toolbar" method="get" data-autosubmit>
+  <label class="search">
+    {{ ui.icon('search', 16) }}
+    <input class="search__input" type="search" name="q" value="{{ query }}" placeholder="{{ t('products.search') }}" autocomplete="off">
+  </label>
+  <div class="select">
+    <select name="category" aria-label="{{ t('field.category') }}">
+      <option value="">{{ t('products.all_categories') }}</option>
+      {% for c in categories %}<option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+    {{ ui.icon('chevron', 14) }}
+  </div>
+  <div class="tabs" role="radiogroup" aria-label="{{ t('field.status') }}">
+    {% for value, label in [('active', 'filter.active'), ('low', 'filter.low'), ('inactive', 'filter.archived'), ('all', 'filter.all')] %}
+      <label class="tabs__item">
+        <input type="radio" name="status" value="{{ value }}" {% if status == value %}checked{% endif %}>
+        <span>{{ t(label) }} <i class="tabs__count">{{ counts[value] }}</i></span>
+      </label>
+    {% endfor %}
+  </div>
+</form>
+
+<section class="panel panel--flush">
+  {% if products %}
+    <div class="table-wrap">
+      <table class="table table--hover">
+        <thead>
+          <tr>
+            <th>{{ t('field.sku') }}</th>
+            <th>{{ t('field.name') }}</th>
+            <th>{{ t('field.category') }}</th>
+            <th class="num">{{ t('field.quantity_left') }}</th>
+            <th class="num">{{ t('field.min_short') }}</th>
+            <th class="num">{{ t('field.purchase_price') }}</th>
+            <th class="num">{{ t('field.sale_price') }}</th>
+            <th>{{ t('field.status') }}</th>
+          </tr>
+        </thead>
+        <tbody data-filterable>
+          {% for p in products %}
+            <tr class="{% if not p.is_active %}is-muted{% endif %}" data-href="{{ url_for('products.detail', product_id=p.id) }}">
+              <td><span class="sku">{{ p.sku }}</span></td>
+              <td><a class="row-link" href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.name }}</a></td>
+              <td class="muted">{{ p.category or '—' }}</td>
+              <td class="num"><b class="strong">{{ p.quantity | number }}</b> <span class="unit">{{ p.unit }}</span></td>
+              <td class="num muted">{{ p.min_quantity | number }}</td>
+              <td class="num">{{ p.purchase_price | money }}</td>
+              <td class="num">{{ p.sale_price | money }}</td>
+              <td>{{ ui.stock_state(p) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif query or category or status != 'active' %}
+    {{ ui.empty(t('products.not_found'), t('products.not_found_text'), url_for('products.index'), t('action.reset_filters')) }}
+  {% else %}
+    {{ ui.empty(t('products.empty'), t('products.empty_text'), url_for('products.create'), t('action.new_product')) }}
+  {% endif %}
+</section>
+<p class="count-note">{{ t('products.shown', count=products | length) }}</p>
+{% endblock %}
