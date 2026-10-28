@@ -147,12 +147,9 @@ h1, h2, h3, p { margin: 0; }
 }
 
 .brand { display: inline-flex; align-items: center; gap: 10px; }
-.brand__mark {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  background: var(--text);
-}
+.brand__mark { display: block; width: 24px; height: 24px; flex: none; }
+.brand__mark .back { fill: var(--text-3); }
+.brand__mark .front { fill: var(--text); }
 .brand__word { font-size: 19px; font-weight: 500; letter-spacing: -0.04em; }
 
 .nav { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
