@@ -29,7 +29,6 @@
 - **Supabase** — PostgreSQL дерекқоры + Auth (email/құпиясөз)
 - **httpx** — Supabase REST/Auth API-мен байланыс
 - Таза CSS және аз ғана JavaScript (фреймворксіз)
-- `unittest` — тесттер
 
 ## 1. Supabase-ті дайындау (бір рет)
 
@@ -51,12 +50,6 @@ copy .env.example .env          # SECRET_KEY мәнін өзгертіңіз
 ```
 
 Браузерде: <http://localhost:5000>
-
-Тесттер (Supabase-сіз, жадтағы деректермен жұмыс істейді):
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
-```
 
 ## 3. Хостинг
 
@@ -90,23 +83,23 @@ copy .env.example .env          # SECRET_KEY мәнін өзгертіңіз
 ├── wsgi.py                 # production кіру нүктесі (gunicorn)
 ├── requirements.txt
 ├── render.yaml · Procfile · Dockerfile
+├── .env.example · .gitignore
 ├── supabase/schema.sql     # кестелер, RLS, функциялар
-├── app/
-│   ├── __init__.py         # create_app
-│   ├── config.py
-│   ├── supabase_client.py  # Auth + REST HTTP клиенті
-│   ├── store.py            # пайдаланушы деректеріне қол жеткізу
-│   ├── i18n.py, translations/  # kk / ru / en
-│   ├── services/           # бизнес-ережелер, валидация, аналитика, CSV
-│   ├── web/                # маршруттар (auth, products, movements, ...)
-│   ├── templates/
-│   └── static/             # css, js
-└── tests/                  # unittest + жадтағы FakeStore
+└── app/
+    ├── __init__.py         # create_app
+    ├── config.py
+    ├── supabase_client.py  # Auth + REST HTTP клиенті
+    ├── store.py            # пайдаланушы деректеріне қол жеткізу
+    ├── i18n.py, translations/  # kk / ru / en
+    ├── services/           # бизнес-ережелер, валидация, аналитика, CSV
+    ├── web/                # маршруттар (auth, products, movements, ...)
+    ├── templates/
+    └── static/             # css, js
 ```
 
 ## Дизайн
 
-Интерфейс [DESIGN.md](DESIGN.md) бойынша жасалған: қараңғы фон градиенттерімен, жалғыз көк акцент, 400 салмақты ірі тақырыптар, «пилюля» батырмалар, жұқа сызықтар. Space Mono кириллицаны қолдамайтындықтан, белгі-жазулар мен артикулдарға JetBrains Mono қолданылады; негізгі шрифт — Inter.
+Интерфейс стилі: қараңғы фон градиенттерімен, жалғыз көк акцент, 400 салмақты ірі тақырыптар, «пилюля» батырмалар, жұқа сызықтар. Space Mono кириллицаны қолдамайтындықтан, белгі-жазулар мен артикулдарға JetBrains Mono қолданылады; негізгі шрифт — Inter.
 
 ## Ескерту
 

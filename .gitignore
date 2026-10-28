@@ -1,6 +1,14 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
+
+# Local configuration and logs
 .env
-data/
 *.log
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
