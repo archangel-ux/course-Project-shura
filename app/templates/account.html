@@ -3,13 +3,12 @@
 {% block title %}{{ t('nav.account') }}{% endblock %}
 {% block content %}
 
-{{ ui.head(t('account.eyebrow'), t('account.title'), t('account.lede')) }}
+{{ ui.head(t('account.eyebrow'), t('account.title')) }}
 
 <div class="settings">
   <section class="form-section" id="profile">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('account.profile') }}</h2>
-      <p>{{ t('account.profile_text') }}</p>
     </div>
     <form class="form-section__fields" method="post" action="{{ url_for('account.profile') }}">
       {{ ui.csrf() }}
@@ -33,7 +32,6 @@
   <section class="form-section" id="preferences">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('account.preferences') }}</h2>
-      <p>{{ t('account.preferences_text') }}</p>
     </div>
     <form class="form-section__fields" method="post" action="{{ url_for('account.preferences') }}">
       {{ ui.csrf() }}
@@ -157,7 +155,6 @@
   <section class="form-section">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('account.session') }}</h2>
-      <p>{{ t('account.session_text') }}</p>
     </div>
     <form class="form-section__fields" method="post" action="{{ url_for('auth.logout') }}">
       {{ ui.csrf() }}

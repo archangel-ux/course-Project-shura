@@ -3,7 +3,7 @@
 {% block title %}{{ t('nav.suppliers') }}{% endblock %}
 {% block content %}
 
-{% call ui.head('05 — ' ~ t('nav.suppliers'), t('suppliers.title'), t('suppliers.lede')) %}
+{% call ui.head('05 — ' ~ t('nav.suppliers'), t('suppliers.title')) %}
   {% if can('manage') %}<a class="btn btn--primary" href="{{ url_for('suppliers.create') }}">{{ ui.icon('plus', 16) }}{{ t('action.new_supplier') }}</a>{% endif %}
 {% endcall %}
 

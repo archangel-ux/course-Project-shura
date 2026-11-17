@@ -3,7 +3,7 @@
 {% block title %}{{ t('nav.overview') }}{% endblock %}
 {% block content %}
 
-{% call ui.head('01 — ' ~ t('nav.overview'), t('dash.title'), t('dash.lede')) %}
+{% call ui.head('01 — ' ~ t('nav.overview'), t('dash.title')) %}
   {% if can('operate') %}<a class="btn btn--ghost" href="{{ url_for('movements.index') }}">{{ t('action.record_movement') }}</a>{% endif %}
   {% if can('manage') %}<a class="btn btn--primary" href="{{ url_for('products.create') }}">{{ ui.icon('plus', 16) }}{{ t('action.new_product') }}</a>{% endif %}
 {% endcall %}

@@ -4,7 +4,7 @@
 {% block content %}
 
 <a class="crumb" href="{{ url_for('warehouses.index') }}">{{ ui.icon('back', 16) }}{{ t('nav.warehouses') }}</a>
-{{ ui.head('04 — ' ~ t('nav.warehouses'), warehouse.name, t('warehouses.form_lede')) }}
+{{ ui.head('04 — ' ~ t('nav.warehouses'), warehouse.name) }}
 
 <form class="form-layout" method="post">
   {{ ui.csrf() }}

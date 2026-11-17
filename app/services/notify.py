@@ -52,11 +52,29 @@ def bot_username(token):
     return username
 
 
+def _recent_updates(token):
+    """The newest 100 updates. offset=-100 reads from the end of the queue: without it Telegram
+    returns the oldest unconfirmed updates, and once 100 of them pile up a fresh /start is never seen."""
+    payload = {"offset": -100, "limit": 100, "timeout": 0, "allowed_updates": ["message"]}
+    try:
+        return _telegram(token, "getUpdates", payload)
+    except NotifyError as error:
+        # getUpdates is refused while a webhook is set on the bot; this site only polls.
+        if "webhook" not in str(error).lower():
+            raise
+        _telegram(token, "deleteWebhook", {"drop_pending_updates": False})
+        return _telegram(token, "getUpdates", payload)
+
+
 def find_start_chat(token, code):
-    """Chat id of the user who sent "/start <code>" to the bot in the last 24 hours."""
-    for update in reversed(_telegram(token, "getUpdates", {"allowed_updates": ["message"], "limit": 100})):
+    """Chat id of the user who sent "/start <code>" (or just the code) to the bot in the last 24 hours."""
+    for update in reversed(_recent_updates(token)):
         message = update.get("message") or {}
-        if (message.get("text") or "").strip() == f"/start {code}":
+        words = (message.get("text") or "").split()
+        if not words:
+            continue
+        # "/start CODE", "/start@bot CODE" or the code pasted by hand
+        if words[-1] == code and (len(words) == 1 or words[0].startswith("/start")):
             return message["chat"]["id"]
     return None
 

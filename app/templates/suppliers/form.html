@@ -5,7 +5,7 @@
 {% block content %}
 
 <a class="crumb" href="{{ url_for('suppliers.index') }}">{{ ui.icon('back', 16) }}{{ t('nav.suppliers') }}</a>
-{{ ui.head('05 — ' ~ t('nav.suppliers'), t('suppliers.new_title') if is_new else supplier.name, t('suppliers.form_lede')) }}
+{{ ui.head('05 — ' ~ t('nav.suppliers'), t('suppliers.new_title') if is_new else supplier.name) }}
 
 <form class="form-layout" method="post">
   {{ ui.csrf() }}
@@ -13,7 +13,6 @@
   <section class="form-section">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('suppliers.section_main') }}</h2>
-      <p>{{ t('suppliers.section_main_text') }}</p>
     </div>
     <div class="form-section__fields">
       {{ ui.field('name', t('field.supplier_name'), form.name, required=True, attrs='maxlength="150" autofocus') }}

@@ -3,7 +3,7 @@
 {% block title %}{{ t('nav.products') }}{% endblock %}
 {% block content %}
 
-{% call ui.head('02 — ' ~ t('nav.products'), t('products.title'), t('products.lede')) %}
+{% call ui.head('02 — ' ~ t('nav.products'), t('products.title')) %}
   {% if can('manage') %}
     <a class="btn btn--ghost" href="{{ url_for('products.import_products') }}">{{ ui.icon('upload', 16) }}{{ t('action.import') }}</a>
     <a class="btn btn--primary" href="{{ url_for('products.create') }}">{{ ui.icon('plus', 16) }}{{ t('action.new_product') }}</a>

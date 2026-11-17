@@ -3,7 +3,7 @@
 {% block title %}{{ t('nav.warehouses') }}{% endblock %}
 {% block content %}
 
-{% call ui.head('04 — ' ~ t('nav.warehouses'), t('warehouses.title'), t('warehouses.lede')) %}
+{% call ui.head('04 — ' ~ t('nav.warehouses'), t('warehouses.title')) %}
   {% if can('operate') and warehouses | length > 1 %}
     <a class="btn btn--ghost" href="{{ url_for('movements.index', op='TRANSFER') }}">{{ ui.icon('transfer', 16) }}{{ t('warehouses.transfer') }}</a>
   {% endif %}

@@ -3,7 +3,7 @@
 {% block title %}{{ t('nav.organization') }}{% endblock %}
 {% block content %}
 
-{{ ui.head(t('org.eyebrow'), details.name or org.name, t('org.lede')) }}
+{{ ui.head(t('org.eyebrow'), details.name or org.name) }}
 {% set owner = org.role == 'owner' %}
 {% set values = form or details %}
 
@@ -38,7 +38,6 @@
   <section class="form-section" id="team">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('org.team') }}</h2>
-      <p>{{ t('org.team_text') }}</p>
       <ul class="roles-ref">
         {% for r in roles %}<li>{{ ui.role_badge(r) }}<span>{{ t('role.' ~ r ~ '_text') }}</span></li>{% endfor %}
       </ul>

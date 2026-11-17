@@ -1,6 +1,7 @@
 """Telegram linking, notification settings and the daily low-stock cron endpoint."""
 
 import hmac
+import html
 import logging
 import secrets
 
@@ -66,10 +67,11 @@ def telegram_check():
 
     _save_profile({"telegram_chat_id": chat_id, "notify_telegram": True})
     session.pop("telegram_link", None)
+    org_name = html.escape((current_org() or {}).get("name", ""))
     try:
-        notify.send_telegram(_token(), chat_id, t("notify.linked", org=(current_org() or {}).get("name", "")))
-    except notify.NotifyError:
-        pass
+        notify.send_telegram(_token(), chat_id, t("notify.linked", org=org_name))
+    except notify.NotifyError as error:
+        logger.warning("Telegram welcome message failed: %s", error)
     flash(t("msg.telegram_linked"), "success")
     return jsonify(linked=True, redirect=url_for("account.index") + "#notifications") if wants_json else _back()
 
@@ -99,28 +101,39 @@ def settings():
 def test():
     """Send the current low-stock list right now to this user's channels."""
     profile = session.get("profile") or {}
+    # the session copy can be stale (linked in another browser) — the database is the source of truth
+    try:
+        profile = {**profile, **(get_store().get_profile() or {})}
+        session["profile"] = profile
+    except Exception as error:  # noqa: BLE001 — fall back to the session copy
+        logger.warning("Profile reload failed: %s", error)
     products = get_store().list_products()
     items = [{**p, "out_30": 0} for p in inventory.low_stock(products)]
-    if not items:
-        flash(t("msg.digest_nothing"), "success")
-        return _back()
     org_name = (current_org() or {}).get("name", "")
+    language = profile.get("language") or "kk"
     config = current_app.config
     sent = 0
-    try:
-        if profile.get("telegram_chat_id") and _token():
-            notify.send_telegram(_token(), profile["telegram_chat_id"],
-                                 notify.digest_text(profile.get("language") or "kk", org_name, items, config["SITE_URL"]))
+    if profile.get("telegram_chat_id") and _token():
+        text = (notify.digest_text(language, org_name, items, config["SITE_URL"]) if items
+                else t("notify.all_good", org=html.escape(org_name)))
+        try:
+            notify.send_telegram(_token(), profile["telegram_chat_id"], text)
             sent += 1
-        if profile.get("notify_email") and notify.email_enabled(config):
+        except notify.NotifyError as error:
+            logger.warning("Test digest failed: %s", error)
+            flash(t("err.telegram_detail", detail=str(error)), "error")
+            return _back()
+    if items and profile.get("notify_email") and notify.email_enabled(config):
+        try:
             notify.send_email(config, session["auth"]["email"], t("notify.subject", count=len(items)),
-                              notify.digest_plain(profile.get("language") or "kk", org_name, items, config["SITE_URL"]))
+                              notify.digest_plain(language, org_name, items, config["SITE_URL"]))
             sent += 1
-    except notify.NotifyError as error:
-        logger.warning("Test digest failed: %s", error)
-        flash(t("err.telegram"), "error")
+        except notify.NotifyError as error:
+            logger.warning("Test email failed: %s", error)
+    if not sent:
+        flash(t("msg.digest_nothing") if not items else t("err.no_channel"), "success" if not items else "error")
         return _back()
-    flash(t("msg.digest_sent") if sent else t("err.no_channel"), "success" if sent else "error")
+    flash(t("msg.digest_sent"), "success")
     return _back()
 
 

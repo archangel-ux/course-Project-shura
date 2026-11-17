@@ -3,7 +3,7 @@
 {% block title %}{{ t('nav.movements') }}{% endblock %}
 {% block content %}
 
-{{ ui.head('03 — ' ~ t('nav.movements'), t('movements.title'), t('movements.lede')) }}
+{{ ui.head('03 — ' ~ t('nav.movements'), t('movements.title')) }}
 
 {% set multi = warehouses | length > 1 %}
 <div class="{{ 'layout-doc' if can('operate') else '' }}">

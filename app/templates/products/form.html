@@ -5,7 +5,7 @@
 {% block content %}
 
 <a class="crumb" href="{{ url_for('products.index') if is_new else url_for('products.detail', product_id=product.id) }}">{{ ui.icon('back', 16) }}{{ t('nav.products') if is_new else product.name }}</a>
-{{ ui.head('02 — ' ~ t('nav.products'), t('products.new_title') if is_new else t('products.edit_title'), t('products.form_lede')) }}
+{{ ui.head('02 — ' ~ t('nav.products'), t('products.new_title') if is_new else t('products.edit_title')) }}
 
 <form class="form-layout" method="post">
   {{ ui.csrf() }}
@@ -14,7 +14,6 @@
   <section class="form-section">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('products.section_main') }}</h2>
-      <p>{{ t('products.section_main_text') }}</p>
     </div>
     <div class="form-section__fields">
       {{ ui.field('name', t('field.name'), form.name, required=True, placeholder=t('products.name_placeholder'), attrs='maxlength="150" autofocus') }}
@@ -34,7 +33,6 @@
   <section class="form-section">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('products.section_price') }}</h2>
-      <p>{{ t('products.section_price_text') }}</p>
     </div>
     <div class="form-section__fields">
       <div class="grid-2">
@@ -60,7 +58,6 @@
   <section class="form-section">
     <div class="form-section__intro">
       <h2 class="form-section__title">{{ t('field.description') }}</h2>
-      <p>{{ t('products.section_desc_text') }}</p>
     </div>
     <div class="form-section__fields">
       <label class="field">

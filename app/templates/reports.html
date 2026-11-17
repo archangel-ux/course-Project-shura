@@ -3,7 +3,7 @@
 {% block title %}{{ t('nav.reports') }}{% endblock %}
 {% block content %}
 
-{% call ui.head('06 — ' ~ t('nav.reports'), t('reports.title'), t('reports.lede')) %}
+{% call ui.head('06 — ' ~ t('nav.reports'), t('reports.title')) %}
   <form method="get" class="tabs" data-autosubmit role="radiogroup" aria-label="{{ t('reports.period') }}">
     {% for d in periods %}
       <label class="tabs__item"><input type="radio" name="days" value="{{ d }}" {% if d == days %}checked{% endif %}><span>{{ t('reports.days', days=d) }}</span></label>
